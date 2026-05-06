@@ -21,14 +21,16 @@ type Parroquia = { id: string; nombre: string }
 export default function RecintoDetail({
   recinto,
   parroquias,
+  initEditing = false,
 }: {
   recinto: Recinto
   parroquias: Parroquia[]
+  initEditing?: boolean
 }) {
   const router = useRouter()
   const supabase = createClient()
 
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(initEditing)
   const [nombre, setNombre] = useState(recinto.nombre)
   const [idParroquia, setIdParroquia] = useState(recinto.id_parroquia)
   const [juntasM, setJuntasM] = useState(String(recinto.juntas_m))

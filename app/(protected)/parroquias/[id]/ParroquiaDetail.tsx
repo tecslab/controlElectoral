@@ -15,11 +15,11 @@ type Parroquia = {
   num_juntas: number
 }
 
-export default function ParroquiaDetail({ parroquia }: { parroquia: Parroquia }) {
+export default function ParroquiaDetail({ parroquia, initEditing = false }: { parroquia: Parroquia, initEditing?: boolean }) {
   const router = useRouter()
   const supabase = createClient()
 
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(initEditing)
   const [nombre, setNombre] = useState(parroquia.nombre)
   const [tipo, setTipo] = useState<'Urbana' | 'Rural'>(parroquia.tipo as 'Urbana' | 'Rural')
   const [loading, setLoading] = useState(false)

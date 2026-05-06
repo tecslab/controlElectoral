@@ -16,14 +16,16 @@ const CONTACTADO_OPTIONS = ['Sí', 'No', 'No responde', 'Volver a contactar']
 export default function ColaboradorDetail({
   colaborador,
   recintos,
+  initEditing = false,
 }: {
   colaborador: ColaboradorRaw
   recintos: Recinto[]
+  initEditing?: boolean
 }) {
   const router = useRouter()
   const supabase = createClient()
 
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing] = useState(initEditing)
   const [form, setForm] = useState({
     apellidos: colaborador.apellidos,
     nombres: colaborador.nombres,

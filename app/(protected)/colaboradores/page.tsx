@@ -158,7 +158,7 @@ export default async function ColaboradoresPage(props: { searchParams: SearchPar
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                       <Link href={`/colaboradores/${c.id}`} className="btn btn-secondary btn-xs">Ver</Link>
-                      <Link href={`/colaboradores/${c.id}/editar`} className="btn btn-ghost btn-xs">Editar</Link>
+                      <Link href={`/colaboradores/${c.id}?edit=true`} className="btn btn-ghost btn-xs">Editar</Link>
                     </div>
                   </td>
                 </tr>

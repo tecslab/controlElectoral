@@ -3,9 +3,11 @@ import { notFound } from 'next/navigation'
 import RecintoDetail from './RecintoDetail'
 
 type Params = Promise<{ id: string }>
+type SearchParams = Promise<{ edit?: string }>
 
-export default async function RecintoPage(props: { params: Params }) {
+export default async function RecintoPage(props: { params: Params, searchParams: SearchParams }) {
   const params = await props.params
+  const searchParams = await props.searchParams
   const supabase = await createClient()
 
   const [{ data: recinto, error }, { data: parroquias }] = await Promise.all([
@@ -35,6 +37,7 @@ export default async function RecintoPage(props: { params: Params }) {
         parroquia_nombre: (recinto.parroquias as { nombre: string } | null)?.nombre ?? '—',
       }}
       parroquias={parroquias ?? []}
+      initEditing={searchParams.edit === 'true'}
     />
   )
 }

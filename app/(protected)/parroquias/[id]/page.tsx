@@ -3,9 +3,11 @@ import { notFound } from 'next/navigation'
 import ParroquiaDetail from './ParroquiaDetail'
 
 type Params = Promise<{ id: string }>
+type SearchParams = Promise<{ edit?: string }>
 
-export default async function ParroquiaPage(props: { params: Params }) {
+export default async function ParroquiaPage(props: { params: Params, searchParams: SearchParams }) {
   const params = await props.params
+  const searchParams = await props.searchParams
   const supabase = await createClient()
 
   const { data: parroquia, error } = await supabase
@@ -31,6 +33,7 @@ export default async function ParroquiaPage(props: { params: Params }) {
   return (
     <ParroquiaDetail
       parroquia={{ ...parroquia, num_recintos: numRecintos, num_juntas: numJuntas }}
+      initEditing={searchParams.edit === 'true'}
     />
   )
 }

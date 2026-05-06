@@ -104,7 +104,7 @@ export default async function RecintosPage(props: { searchParams: SearchParams }
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                       <Link href={`/recintos/${r.id}`} className="btn btn-secondary btn-xs">Ver</Link>
-                      <Link href={`/recintos/${r.id}/editar`} className="btn btn-ghost btn-xs">Editar</Link>
+                      <Link href={`/recintos/${r.id}?edit=true`} className="btn btn-ghost btn-xs">Editar</Link>
                     </div>
                   </td>
                 </tr>

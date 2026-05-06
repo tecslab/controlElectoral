@@ -100,7 +100,7 @@ export default async function ParroquiasPage(props: { searchParams: SearchParams
                       <Link href={`/parroquias/${p.id}`} className="btn btn-secondary btn-xs">
                         Ver
                       </Link>
-                      <Link href={`/parroquias/${p.id}/editar`} className="btn btn-ghost btn-xs">
+                      <Link href={`/parroquias/${p.id}?edit=true`} className="btn btn-ghost btn-xs">
                         Editar
                       </Link>
                     </div>

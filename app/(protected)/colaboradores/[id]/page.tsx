@@ -3,9 +3,11 @@ import { notFound } from 'next/navigation'
 import ColaboradorDetail from './ColaboradorDetail'
 
 type Params = Promise<{ id: string }>
+type SearchParams = Promise<{ edit?: string }>
 
-export default async function ColaboradorPage(props: { params: Params }) {
+export default async function ColaboradorPage(props: { params: Params, searchParams: SearchParams }) {
   const params = await props.params
+  const searchParams = await props.searchParams
   const supabase = await createClient()
 
   const [
@@ -33,7 +35,7 @@ export default async function ColaboradorPage(props: { params: Params }) {
 
   if (error || !colab) notFound()
 
-  return <ColaboradorDetail colaborador={colab as ColaboradorRaw} recintos={recintos ?? []} />
+  return <ColaboradorDetail colaborador={colab as ColaboradorRaw} recintos={recintos ?? []} initEditing={searchParams.edit === 'true'} />
 }
 
 // Type exported for use in client component
