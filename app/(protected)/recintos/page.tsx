@@ -26,7 +26,11 @@ export default async function RecintosPage(props: { searchParams: SearchParams }
     .select(`
       id, nombre, estado,
       parroquias!recintos_id_parroquia_fkey ( nombre ),
-      juntas!juntas_id_recinto_fkey ( id, estado )
+      juntas!juntas_id_recinto_fkey (
+        id,
+        estado,
+        asignacion_juntas!asignacion_juntas_id_junta_fkey ( id )
+      )
     `)
     .order('nombre')
 
@@ -74,6 +78,7 @@ export default async function RecintosPage(props: { searchParams: SearchParams }
               <th>Nombre</th>
               <th>Parroquia</th>
               <th># Juntas Activas</th>
+              <th>Juntas no asignadas</th>
               <th>Estado</th>
               <th style={{ textAlign: 'right' }}>Acciones</th>
             </tr>
@@ -81,7 +86,7 @@ export default async function RecintosPage(props: { searchParams: SearchParams }
           <tbody>
             {(!recintos || recintos.length === 0) ? (
               <tr>
-                <td colSpan={5}>
+                <td colSpan={6}>
                   <div className="empty-state">
                     <div className="empty-state-icon">🏫</div>
                     <div>No se encontraron recintos</div>
@@ -90,12 +95,14 @@ export default async function RecintosPage(props: { searchParams: SearchParams }
               </tr>
             ) : recintos.map(r => {
               const juntasActivas = (r.juntas ?? []).filter((j: { estado: string }) => j.estado === 'Activo').length
+              const juntasNoAsignadas = (r.juntas ?? []).filter((j: any) => !j.asignacion_juntas || j.asignacion_juntas.length === 0).length
               const parroquiaNombre = (r.parroquias as { nombre: string } | null)?.nombre ?? '—'
               return (
                 <tr key={r.id}>
                   <td style={{ fontWeight: 500 }}>{r.nombre}</td>
                   <td style={{ color: 'var(--color-text-muted)' }}>{parroquiaNombre}</td>
                   <td>{juntasActivas}</td>
+                  <td>{juntasNoAsignadas}</td>
                   <td>
                     <span className={`badge ${r.estado === 'Activo' ? 'badge-green' : 'badge-red'}`}>
                       {r.estado}

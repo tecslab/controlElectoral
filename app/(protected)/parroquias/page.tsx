@@ -21,7 +21,10 @@ export default async function ParroquiasPage(props: { searchParams: SearchParams
       id, nombre, tipo, estado,
       recintos!recintos_id_parroquia_fkey (
         id,
-        juntas!juntas_id_recinto_fkey ( id )
+        juntas!juntas_id_recinto_fkey (
+          id,
+          asignacion_juntas!asignacion_juntas_id_junta_fkey ( id )
+        )
       )
     `)
     .order('nombre')
@@ -63,6 +66,7 @@ export default async function ParroquiasPage(props: { searchParams: SearchParams
               <th>Tipo</th>
               <th># Recintos</th>
               <th># Juntas</th>
+              <th>Juntas no asignadas</th>
               <th>Estado</th>
               <th style={{ textAlign: 'right' }}>Acciones</th>
             </tr>
@@ -70,7 +74,7 @@ export default async function ParroquiasPage(props: { searchParams: SearchParams
           <tbody>
             {(!parroquias || parroquias.length === 0) ? (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <div className="empty-state">
                     <div className="empty-state-icon">🏘️</div>
                     <div>No se encontraron parroquias</div>
@@ -79,7 +83,11 @@ export default async function ParroquiasPage(props: { searchParams: SearchParams
               </tr>
             ) : parroquias.map(p => {
               const numRecintos = p.recintos?.length ?? 0
-              const numJuntas = p.recintos?.reduce((sum: number, r: { juntas?: { id: string }[] }) => sum + (r.juntas?.length ?? 0), 0) ?? 0
+              const numJuntas = p.recintos?.reduce((sum: number, r: any) => sum + (r.juntas?.length ?? 0), 0) ?? 0
+              const numJuntasNoAsignadas = p.recintos?.reduce((sum: number, r: any) => {
+                const unassignedInRecinto = r.juntas?.filter((j: any) => !j.asignacion_juntas || j.asignacion_juntas.length === 0).length ?? 0;
+                return sum + unassignedInRecinto;
+              }, 0) ?? 0;
               return (
                 <tr key={p.id}>
                   <td style={{ fontWeight: 500 }}>{p.nombre}</td>
@@ -90,6 +98,7 @@ export default async function ParroquiasPage(props: { searchParams: SearchParams
                   </td>
                   <td>{numRecintos}</td>
                   <td>{numJuntas}</td>
+                  <td>{numJuntasNoAsignadas}</td>
                   <td>
                     <span className={`badge ${p.estado === 'Activo' ? 'badge-green' : 'badge-red'}`}>
                       {p.estado}
