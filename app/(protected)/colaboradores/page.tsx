@@ -56,7 +56,11 @@ export default async function ColaboradoresPage(props: { searchParams: SearchPar
     query = query.eq('rol', searchParams.rol)
   }
   if (searchParams.recinto) {
-    query = query.eq('id_recinto_asignado', searchParams.recinto)
+    if (searchParams.recinto === 'unassigned') {
+      query = query.is('id_recinto_asignado', null)
+    } else {
+      query = query.eq('id_recinto_asignado', searchParams.recinto)
+    }
   }
   if (searchParams.capacitacion && searchParams.capacitacion !== 'Todos') {
     query = query.eq('asiste_capacitacion', searchParams.capacitacion)

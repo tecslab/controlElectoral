@@ -56,6 +56,7 @@ export default function ColaboradorFilters({
           id="filter-recinto-colaborador"
         >
           <option value="">Todos los recintos</option>
+          <option value="unassigned">No asignados</option>
           {recintos.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
         </select>
 
