@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Toast from '@/components/ui/Toast'
 import Link from 'next/link'
+import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 
 type Recinto = {
   id: string
@@ -39,6 +40,8 @@ export default function RecintoDetail({
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  useEnterSubmit('#btn-guardar-recinto', editing)
+
   function validate() {
     const errs: Record<string, string> = {}
     if (!nombre.trim()) errs.nombre = 'El nombre es obligatorio'
@@ -52,6 +55,7 @@ export default function RecintoDetail({
   }
 
   async function handleSave() {
+    if (loading) return;
     if (!validate()) return
     setLoading(true)
 

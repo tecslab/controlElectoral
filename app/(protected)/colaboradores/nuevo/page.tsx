@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Toast from '@/components/ui/Toast'
 import RangeSelector from '@/components/ui/RangeSelector'
+import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 
 type Recinto = { id: string; nombre: string }
 type Junta = { id: string; numero: number; sexo: string; estado: string }
@@ -30,6 +31,8 @@ export default function NuevoColaboradorPage() {
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  useEnterSubmit('#btn-ingresar-colaborador')
 
   useEffect(() => {
     supabase.from('recintos').select('id, nombre').eq('estado', 'Activo').order('nombre')
@@ -71,6 +74,7 @@ export default function NuevoColaboradorPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (loading) return;
     if (!validate()) return
 
     setLoading(true)
@@ -140,7 +144,6 @@ export default function NuevoColaboradorPage() {
       )
     }
 
-    setLoading(false)
     setToast({ message: 'Colaborador creado exitosamente', type: 'success' })
     setTimeout(() => router.push('/colaboradores'), 1200)
   }

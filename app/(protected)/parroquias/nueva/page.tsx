@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Toast from '@/components/ui/Toast'
+import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 
 export default function NuevaParroquiaPage() {
   const router = useRouter()
@@ -15,6 +16,8 @@ export default function NuevaParroquiaPage() {
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
   const [errors, setErrors] = useState<{ nombre?: string }>({})
 
+  useEnterSubmit('#btn-ingresar-parroquia')
+
   function validate() {
     const errs: typeof errors = {}
     if (!nombre.trim()) errs.nombre = 'El nombre es obligatorio'
@@ -24,6 +27,7 @@ export default function NuevaParroquiaPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (loading) return
     if (!validate()) return
 
     setLoading(true)
@@ -31,9 +35,9 @@ export default function NuevaParroquiaPage() {
       nombre: nombre.trim(),
       tipo,
     })
-    setLoading(false)
 
     if (error) {
+      setLoading(false)
       setToast({ message: `Error al crear parroquia: ${error.message}`, type: 'error' })
       return
     }

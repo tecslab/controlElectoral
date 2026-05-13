@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Toast from '@/components/ui/Toast'
 import Link from 'next/link'
+import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 
 type Parroquia = {
   id: string
@@ -25,7 +26,10 @@ export default function ParroquiaDetail({ parroquia, initEditing = false }: { pa
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
 
+  useEnterSubmit('#btn-guardar-parroquia', editing)
+
   async function handleSave() {
+    if (loading) return;
     if (!nombre.trim()) {
       setToast({ message: 'El nombre es obligatorio', type: 'error' })
       return

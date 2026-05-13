@@ -7,6 +7,7 @@ import Toast from '@/components/ui/Toast'
 import RangeSelector from '@/components/ui/RangeSelector'
 import Link from 'next/link'
 import type { ColaboradorRaw } from './page'
+import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 
 type Recinto = { id: string; nombre: string; id_parroquia: string }
 type Junta = { id: string; numero: number; sexo: string; estado: string }
@@ -46,6 +47,8 @@ export default function ColaboradorDetail({
   const [savingObs, setSavingObs] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  useEnterSubmit('#btn-guardar-colaborador', editing)
 
   // Compute current juntas from existing assignments
   const activeAssignments = colaborador.asignacion_juntas
@@ -101,6 +104,7 @@ export default function ColaboradorDetail({
   }
 
   async function handleSave() {
+    if (loading) return;
     if (!validate()) return
     setLoading(true)
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Toast from '@/components/ui/Toast'
+import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 
 type Parroquia = { id: string; nombre: string }
 
@@ -19,6 +20,8 @@ export default function NuevoRecintoPage() {
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  useEnterSubmit('#btn-ingresar-recinto')
 
   useEffect(() => {
     supabase.from('parroquias').select('id, nombre').eq('estado', 'Activo').order('nombre')
@@ -42,6 +45,7 @@ export default function NuevoRecintoPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (loading) return
     if (!validate()) return
 
     setLoading(true)
@@ -51,9 +55,9 @@ export default function NuevoRecintoPage() {
       p_juntas_m: parseInt(juntasM) || 0,
       p_juntas_f: parseInt(juntasF) || 0,
     })
-    setLoading(false)
 
     if (error) {
+      setLoading(false)
       setToast({ message: `Error al crear recinto: ${error.message}`, type: 'error' })
       return
     }
