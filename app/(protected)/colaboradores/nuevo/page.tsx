@@ -7,8 +7,9 @@ import Toast from '@/components/ui/Toast'
 import RangeSelector from '@/components/ui/RangeSelector'
 import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 
-type Recinto = { id: string; nombre: string }
+type Recinto = { id: string; nombre: string; id_parroquia: string }
 type Junta = { id: string; numero: number; sexo: string; estado: string }
+type Parroquia = { id: string; nombre: string }
 
 export default function NuevoColaboradorPage() {
   const router = useRouter()
@@ -27,15 +28,21 @@ export default function NuevoColaboradorPage() {
   const [rangeF, setRangeF] = useState({ desde: 0, hasta: 0 })
 
   const [recintos, setRecintos] = useState<Recinto[]>([])
+  const [parroquias, setParroquias] = useState<Parroquia[]>([])
   const [juntasRecinto, setJuntasRecinto] = useState<Junta[]>([])
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  const [filtroParroquiaVotacion, setFiltroParroquiaVotacion] = useState('')
+  const [filtroParroquiaAsignado, setFiltroParroquiaAsignado] = useState('')
+
   useEnterSubmit('#btn-ingresar-colaborador')
 
   useEffect(() => {
-    supabase.from('recintos').select('id, nombre').eq('estado', 'Activo').order('nombre')
+    supabase.from('parroquias').select('id, nombre').eq('estado', 'Activo').order('nombre')
+      .then(({ data }) => setParroquias(data ?? []))
+    supabase.from('recintos').select('id, nombre, id_parroquia').eq('estado', 'Activo').order('nombre')
       .then(({ data }) => setRecintos(data ?? []))
   }, [])
 
@@ -149,6 +156,8 @@ export default function NuevoColaboradorPage() {
   }
 
   const isMJRV = form.rol === 'MJRV'
+  const recintosVotacion = filtroParroquiaVotacion ? recintos.filter(r => r.id_parroquia === filtroParroquiaVotacion) : recintos
+  const recintosAsignado = filtroParroquiaAsignado ? recintos.filter(r => r.id_parroquia === filtroParroquiaAsignado) : recintos
   const juntasM = juntasRecinto.filter(j => j.sexo === 'M')
   const juntasF = juntasRecinto.filter(j => j.sexo === 'F')
 
@@ -235,6 +244,38 @@ export default function NuevoColaboradorPage() {
           </div>
           <div className="form-grid" style={{ marginBottom: '1.5rem' }}>
             <div className="form-group">
+              <label htmlFor="parroquia-votacion" className="label" style={{ color: 'var(--color-text-muted)' }}>Parroquia de Votación</label>
+              <select
+                id="parroquia-votacion"
+                className="input"
+                value={filtroParroquiaVotacion}
+                onChange={e => {
+                  setFiltroParroquiaVotacion(e.target.value)
+                  setField('id_recinto_votacion', '')
+                }}
+              >
+                <option value="">Todas</option>
+                {parroquias.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="parroquia-asignada" className="label" style={{ color: 'var(--color-text-muted)' }}>Parroquia Asignada</label>
+              <select
+                id="parroquia-asignada"
+                className="input"
+                value={filtroParroquiaAsignado}
+                onChange={e => {
+                  setFiltroParroquiaAsignado(e.target.value)
+                  setField('id_recinto_asignado', '')
+                }}
+              >
+                <option value="">Todas</option>
+                {parroquias.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              </select>
+            </div>
+
+            <div className="form-group">
               <label htmlFor="recinto-votacion" className="label">Recinto de Votación</label>
               <select
                 id="recinto-votacion"
@@ -243,7 +284,7 @@ export default function NuevoColaboradorPage() {
                 onChange={e => setField('id_recinto_votacion', e.target.value)}
               >
                 <option value="">No asignado</option>
-                {recintos.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                {recintosVotacion.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
               </select>
             </div>
 
@@ -256,7 +297,7 @@ export default function NuevoColaboradorPage() {
                 onChange={e => setField('id_recinto_asignado', e.target.value)}
               >
                 <option value="">No asignado</option>
-                {recintos.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                {recintosAsignado.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
               </select>
             </div>
 

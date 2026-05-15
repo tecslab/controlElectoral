@@ -11,16 +11,19 @@ import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 
 type Recinto = { id: string; nombre: string; id_parroquia: string }
 type Junta = { id: string; numero: number; sexo: string; estado: string }
+type Parroquia = { id: string; nombre: string }
 
 const CONTACTADO_OPTIONS = ['Sí', 'No', 'No responde', 'Volver a contactar']
 
 export default function ColaboradorDetail({
   colaborador,
   recintos,
+  parroquias,
   initEditing = false,
 }: {
   colaborador: ColaboradorRaw
   recintos: Recinto[]
+  parroquias: Parroquia[]
   initEditing?: boolean
 }) {
   const router = useRouter()
@@ -42,6 +45,9 @@ export default function ColaboradorDetail({
   const [rangeM, setRangeM] = useState({ desde: 0, hasta: 0 })
   const [rangeF, setRangeF] = useState({ desde: 0, hasta: 0 })
   const [newObservacion, setNewObservacion] = useState('')
+
+  const [filtroParroquiaVotacion, setFiltroParroquiaVotacion] = useState('')
+  const [filtroParroquiaAsignado, setFiltroParroquiaAsignado] = useState('')
 
   const [loading, setLoading] = useState(false)
   const [savingObs, setSavingObs] = useState(false)
@@ -186,6 +192,8 @@ export default function ColaboradorDetail({
   }
 
   const isMJRV = form.rol === 'MJRV'
+  const recintosVotacion = filtroParroquiaVotacion ? recintos.filter(r => r.id_parroquia === filtroParroquiaVotacion) : recintos
+  const recintosAsignado = filtroParroquiaAsignado ? recintos.filter(r => r.id_parroquia === filtroParroquiaAsignado) : recintos
   const juntasM = juntasRecinto.filter(j => j.sexo === 'M')
   const juntasF = juntasRecinto.filter(j => j.sexo === 'F')
 
@@ -298,11 +306,35 @@ export default function ColaboradorDetail({
           Asignación electoral
         </div>
         <div className="form-grid" style={{ marginBottom: '1.5rem' }}>
+          {editing && (
+            <>
+              <Field label="Parroquia de Votación" editing={editing}>
+                <select className="input" value={filtroParroquiaVotacion} onChange={e => {
+                  setFiltroParroquiaVotacion(e.target.value)
+                  setField('id_recinto_votacion', '')
+                }}>
+                  <option value="">Todas</option>
+                  {parroquias.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                </select>
+              </Field>
+
+              <Field label="Parroquia Asignada" editing={editing}>
+                <select className="input" value={filtroParroquiaAsignado} onChange={e => {
+                  setFiltroParroquiaAsignado(e.target.value)
+                  setField('id_recinto_asignado', '')
+                }}>
+                  <option value="">Todas</option>
+                  {parroquias.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                </select>
+              </Field>
+            </>
+          )}
+
           <Field label="Recinto de Votación" editing={editing}>
             {editing ? (
               <select id="edit-recinto-votacion" className="input" value={form.id_recinto_votacion} onChange={e => setField('id_recinto_votacion', e.target.value)}>
                 <option value="">No asignado</option>
-                {recintos.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                {recintosVotacion.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
               </select>
             ) : (
               recintos.find(r => r.id === colaborador.id_recinto_votacion)?.nombre ?? 'No asignado'
@@ -313,7 +345,7 @@ export default function ColaboradorDetail({
             {editing ? (
               <select id="edit-recinto-asignado" className="input" value={form.id_recinto_asignado} onChange={e => setField('id_recinto_asignado', e.target.value)}>
                 <option value="">No asignado</option>
-                {recintos.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                {recintosAsignado.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
               </select>
             ) : (
               recintos.find(r => r.id === colaborador.id_recinto_asignado)?.nombre ?? 'No asignado'

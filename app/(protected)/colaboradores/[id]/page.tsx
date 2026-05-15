@@ -13,6 +13,7 @@ export default async function ColaboradorPage(props: { params: Params, searchPar
   const [
     { data: colab, error },
     { data: recintos },
+    { data: parroquias },
   ] = await Promise.all([
     supabase
       .from('colaboradores')
@@ -31,11 +32,12 @@ export default async function ColaboradorPage(props: { params: Params, searchPar
       .single(),
     supabase.from('recintos').select('id, nombre, id_parroquia, parroquias!recintos_id_parroquia_fkey(nombre)')
       .eq('estado', 'Activo').order('nombre'),
+    supabase.from('parroquias').select('id, nombre').eq('estado', 'Activo').order('nombre'),
   ])
 
   if (error || !colab) notFound()
 
-  return <ColaboradorDetail colaborador={colab as ColaboradorRaw} recintos={recintos ?? []} initEditing={searchParams.edit === 'true'} />
+  return <ColaboradorDetail colaborador={colab as ColaboradorRaw} recintos={recintos ?? []} parroquias={parroquias ?? []} initEditing={searchParams.edit === 'true'} />
 }
 
 // Type exported for use in client component
