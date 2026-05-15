@@ -39,7 +39,27 @@ export default function NuevoColaboradorPage() {
 
   useEnterSubmit('#btn-ingresar-colaborador')
 
+  // 1. Initialize from localStorage and fetch data on mount
   useEffect(() => {
+    // Restore session preferences
+    if (typeof window !== 'undefined') {
+      const pVotacion = localStorage.getItem('lastParroquiaVotacion')
+      const pAsignada = localStorage.getItem('lastParroquiaAsignada')
+      const rVotacion = localStorage.getItem('lastRecintoVotacion')
+      const rAsignado = localStorage.getItem('lastRecintoAsignado')
+
+      if (pVotacion) setFiltroParroquiaVotacion(pVotacion)
+      if (pAsignada) setFiltroParroquiaAsignado(pAsignada)
+      
+      if (rVotacion || rAsignado) {
+        setForm(f => ({
+          ...f,
+          id_recinto_votacion: rVotacion ?? '',
+          id_recinto_asignado: rAsignado ?? ''
+        }))
+      }
+    }
+
     supabase.from('parroquias').select('id, nombre').eq('estado', 'Activo').order('nombre')
       .then(({ data }) => setParroquias(data ?? []))
     supabase.from('recintos').select('id, nombre, id_parroquia').eq('estado', 'Activo').order('nombre')
@@ -250,8 +270,11 @@ export default function NuevoColaboradorPage() {
                 className="input"
                 value={filtroParroquiaVotacion}
                 onChange={e => {
-                  setFiltroParroquiaVotacion(e.target.value)
+                  const val = e.target.value
+                  setFiltroParroquiaVotacion(val)
                   setField('id_recinto_votacion', '')
+                  localStorage.setItem('lastParroquiaVotacion', val)
+                  localStorage.removeItem('lastRecintoVotacion')
                 }}
               >
                 <option value="">Todas</option>
@@ -266,8 +289,11 @@ export default function NuevoColaboradorPage() {
                 className="input"
                 value={filtroParroquiaAsignado}
                 onChange={e => {
-                  setFiltroParroquiaAsignado(e.target.value)
+                  const val = e.target.value
+                  setFiltroParroquiaAsignado(val)
                   setField('id_recinto_asignado', '')
+                  localStorage.setItem('lastParroquiaAsignada', val)
+                  localStorage.removeItem('lastRecintoAsignado')
                 }}
               >
                 <option value="">Todas</option>
@@ -281,7 +307,11 @@ export default function NuevoColaboradorPage() {
                 id="recinto-votacion"
                 className="input"
                 value={form.id_recinto_votacion}
-                onChange={e => setField('id_recinto_votacion', e.target.value)}
+                onChange={e => {
+                  const val = e.target.value
+                  setField('id_recinto_votacion', val)
+                  localStorage.setItem('lastRecintoVotacion', val)
+                }}
               >
                 <option value="">No asignado</option>
                 {recintosVotacion.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
@@ -294,7 +324,11 @@ export default function NuevoColaboradorPage() {
                 id="recinto-asignado"
                 className="input"
                 value={form.id_recinto_asignado}
-                onChange={e => setField('id_recinto_asignado', e.target.value)}
+                onChange={e => {
+                  const val = e.target.value
+                  setField('id_recinto_asignado', val)
+                  localStorage.setItem('lastRecintoAsignado', val)
+                }}
               >
                 <option value="">No asignado</option>
                 {recintosAsignado.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}

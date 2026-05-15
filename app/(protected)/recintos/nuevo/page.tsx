@@ -24,6 +24,11 @@ export default function NuevoRecintoPage() {
   useEnterSubmit('#btn-ingresar-recinto')
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const lastParroquia = localStorage.getItem('lastRecintoParroquia')
+      if (lastParroquia) setIdParroquia(lastParroquia)
+    }
+
     supabase.from('parroquias').select('id, nombre').eq('estado', 'Activo').order('nombre')
       .then(({ data }) => setParroquias(data ?? []))
   }, [])
@@ -99,7 +104,11 @@ export default function NuevoRecintoPage() {
                 id="parroquia-recinto"
                 className={`input ${errors.parroquia ? 'input-error' : ''}`}
                 value={idParroquia}
-                onChange={e => setIdParroquia(e.target.value)}
+                onChange={e => {
+                  const val = e.target.value
+                  setIdParroquia(val)
+                  localStorage.setItem('lastRecintoParroquia', val)
+                }}
               >
                 <option value="">Seleccione una parroquia</option>
                 {parroquias.map(p => (
