@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Papa from 'papaparse'
 import { createClient } from '@/lib/supabase/client'
 import Toast from '@/components/ui/Toast'
 import RangeSelector from '@/components/ui/RangeSelector'
@@ -36,6 +37,9 @@ export default function NuevoColaboradorPage() {
 
   const [filtroParroquiaVotacion, setFiltroParroquiaVotacion] = useState('')
   const [filtroParroquiaAsignado, setFiltroParroquiaAsignado] = useState('')
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [rechazados, setRechazados] = useState<{ row: string[], error: string }[]>([])
 
   useEnterSubmit('#btn-ingresar-colaborador')
 
@@ -175,6 +179,158 @@ export default function NuevoColaboradorPage() {
     setTimeout(() => router.push('/colaboradores'), 1200)
   }
 
+  const handleImportCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setLoading(true)
+
+    Papa.parse(file, {
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const data = results.data as string[][]
+        let rowsToProcess = data
+        if (rowsToProcess.length > 0 && rowsToProcess[0][1]?.trim().toLowerCase() === 'nombres') {
+          rowsToProcess = rowsToProcess.slice(1)
+        }
+
+        const validCols: any[] = []
+        const rejected: any[] = []
+
+        const { data: recintosData } = await supabase.from('recintos').select('id')
+        const { data: juntasData } = await supabase.from('juntas').select('id, id_recinto, numero').eq('estado', 'Activo')
+
+        const validRecintosIds = new Set(recintosData?.map(r => String(r.id)) || [])
+        const juntasByRecinto = (juntasData || []).reduce((acc, j) => {
+          if (!acc[j.id_recinto]) acc[j.id_recinto] = []
+          acc[j.id_recinto].push({ id: j.id, numero: j.numero })
+          return acc
+        }, {} as Record<string, { id: string, numero: number }[]>)
+
+        for (let i = 0; i < rowsToProcess.length; i++) {
+          const row = rowsToProcess[i].map(c => c?.trim() || '')
+          const [
+            apellidos = '', nombres = '', whatsapp = '', yaContactadoRaw = '', rolRaw = '',
+            votacion = '', asignado = '', asisteRaw = '', desdeRaw = '', hastaRaw = ''
+          ] = row
+
+          let rejectReason = ''
+          if (!nombres) rejectReason = 'Falta Nombres'
+          const whatsappClean = whatsapp.replace(/\D/g, '')
+          if (!whatsappClean || whatsappClean.length !== 10) {
+            rejectReason = 'WhatsApp es obligatorio y debe tener exactamente 10 dígitos numéricos'
+          }
+
+          const votacionId = votacion && validRecintosIds.has(votacion) ? votacion : null
+          const asignadoId = asignado && validRecintosIds.has(asignado) ? asignado : null
+
+          let desde = desdeRaw ? parseInt(desdeRaw, 10) : null
+          let hasta = hastaRaw ? parseInt(hastaRaw, 10) : null
+
+          let juntasToAssign: string[] = []
+          const rol = rolRaw || 'MJRV'
+          let ya_contactado = yaContactadoRaw || 'No'
+          if (ya_contactado.trim().toLowerCase() === 'si') ya_contactado = 'Sí'
+          
+          let asiste_capacitacion = asisteRaw || 'No'
+          if (asiste_capacitacion.trim().toLowerCase() === 'si') asiste_capacitacion = 'Sí'
+
+          if (!rejectReason && rol === 'MJRV' && asignadoId && desde !== null && hasta !== null && !isNaN(desde) && !isNaN(hasta)) {
+            const juntasOfRecinto = juntasByRecinto[asignadoId] || []
+            const maxJuntaNum = juntasOfRecinto.reduce((m, j) => Math.max(m, j.numero), 0)
+            
+            if (desde < 1 || hasta > maxJuntaNum || desde > hasta) {
+              rejectReason = `Rango de juntas (${desde}-${hasta}) inválido o fuera de límite (máx ${maxJuntaNum}) para el recinto`
+            } else {
+              juntasToAssign = juntasOfRecinto.filter(j => j.numero >= desde! && j.numero <= hasta!).map(j => j.id)
+            }
+          }
+
+          if (rejectReason) {
+            rejected.push({ row, error: rejectReason })
+          } else {
+            validCols.push({
+              apellidos,
+              nombres,
+              whatsapp: whatsappClean,
+              ya_contactado,
+              rol,
+              id_recinto_votacion: votacionId,
+              id_recinto_asignado: asignadoId,
+              asiste_capacitacion,
+              _juntasToAssign: juntasToAssign
+            })
+          }
+        }
+
+        if (validCols.length > 0) {
+          const toInsert = validCols.map(c => ({
+            apellidos: c.apellidos,
+            nombres: c.nombres,
+            whatsapp: c.whatsapp,
+            ya_contactado: c.ya_contactado,
+            rol: c.rol,
+            id_recinto_votacion: c.id_recinto_votacion,
+            id_recinto_asignado: c.id_recinto_asignado,
+            asiste_capacitacion: c.asiste_capacitacion,
+          }))
+
+          const { data: insertedCols, error } = await supabase
+            .from('colaboradores')
+            .insert(toInsert)
+            .select('id')
+
+          if (error) {
+            setToast({ message: `Error al insertar: ${error.message}`, type: 'error' })
+            setLoading(false)
+            return
+          }
+
+          const assignmentsToInsert: { id_colaborador: string, id_junta: string }[] = []
+          if (insertedCols) {
+            insertedCols.forEach((colab, idx) => {
+              const tempColab = validCols[idx]
+              if (tempColab._juntasToAssign && tempColab._juntasToAssign.length > 0) {
+                tempColab._juntasToAssign.forEach((jid: string) => {
+                  assignmentsToInsert.push({ id_colaborador: colab.id, id_junta: jid })
+                })
+              }
+            })
+          }
+
+          if (assignmentsToInsert.length > 0) {
+            await supabase.from('asignacion_juntas').insert(assignmentsToInsert)
+          }
+        }
+
+        setRechazados(rejected)
+        setLoading(false)
+        if (e.target) e.target.value = ''
+        
+        if (validCols.length > 0) {
+          setToast({ message: `Se importaron ${validCols.length} colaboradores correctamente.`, type: 'success' })
+        } else {
+          setToast({ message: 'No se importó ningún colaborador válido.', type: 'error' })
+        }
+      }
+    })
+  }
+
+  const handleDownloadRechazados = () => {
+    const csvData = rechazados.map(r => [...r.row, r.error])
+    const csvHeader = ['Apellidos', 'Nombres', 'Whatsapp', 'ya_contactado', 'rol', 'id_recinto_votacion', 'id_recinto_asignado', 'asiste_capacitacion', 'desde', 'hasta', 'Error']
+    const csv = Papa.unparse([csvHeader, ...csvData])
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', 'colaboradores_rechazados.csv')
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   const isMJRV = form.rol === 'MJRV'
   const recintosVotacion = filtroParroquiaVotacion ? recintos.filter(r => r.id_parroquia === filtroParroquiaVotacion) : recintos
   const recintosAsignado = filtroParroquiaAsignado ? recintos.filter(r => r.id_parroquia === filtroParroquiaAsignado) : recintos
@@ -183,12 +339,43 @@ export default function NuevoColaboradorPage() {
 
   return (
     <div style={{ maxWidth: '700px' }}>
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">Nuevo Colaborador</h1>
-          <p className="page-subtitle">Complete los datos del colaborador</p>
+          <p className="page-subtitle">Complete los datos o importe desde CSV</p>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <input
+            type="file"
+            accept=".csv"
+            style={{ display: 'none' }}
+            ref={fileInputRef}
+            onChange={handleImportCsv}
+          />
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading}
+          >
+            Importar de CSV
+          </button>
         </div>
       </div>
+
+      {rechazados.length > 0 && (
+        <div className="card" style={{ marginBottom: '1.5rem', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3 style={{ color: 'var(--color-text)', fontSize: '1rem', fontWeight: 600, marginBottom: '0.25rem' }}>Errores de Importación</h3>
+              <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Se encontraron {rechazados.length} fila(s) con errores o datos inválidos.</p>
+            </div>
+            <button type="button" className="btn btn-primary" onClick={handleDownloadRechazados}>
+              Descargar rechazados
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <form onSubmit={handleSubmit}>
