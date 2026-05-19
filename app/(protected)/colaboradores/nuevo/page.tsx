@@ -40,6 +40,7 @@ export default function NuevoColaboradorPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [rechazados, setRechazados] = useState<{ row: string[], error: string }[]>([])
+  const [importadosCount, setImportadosCount] = useState<number | null>(null)
 
   useEnterSubmit('#btn-ingresar-colaborador')
 
@@ -304,6 +305,7 @@ export default function NuevoColaboradorPage() {
         }
 
         setRechazados(rejected)
+        setImportadosCount(validCols.length)
         setLoading(false)
         if (e.target) e.target.value = ''
         
@@ -362,6 +364,15 @@ export default function NuevoColaboradorPage() {
           </button>
         </div>
       </div>
+
+      {importadosCount !== null && (
+        <div className="card" style={{ marginBottom: '1.5rem', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+          <div>
+            <h3 style={{ color: 'var(--color-text)', fontSize: '1rem', fontWeight: 600, marginBottom: '0.25rem' }}>Resumen de Importación</h3>
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Se ingresaron {importadosCount} colaborador{importadosCount !== 1 ? 'es' : ''} al sistema.</p>
+          </div>
+        </div>
+      )}
 
       {rechazados.length > 0 && (
         <div className="card" style={{ marginBottom: '1.5rem', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
