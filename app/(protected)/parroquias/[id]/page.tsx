@@ -13,7 +13,7 @@ export default async function ParroquiaPage(props: { params: Params, searchParam
   const { data: parroquia, error } = await supabase
     .from('parroquias')
     .select(`
-      id, nombre, tipo, estado,
+      id, nombre, tipo, estado, created_at, created_by, updated_at, updated_by,
       recintos!recintos_id_parroquia_fkey (
         id, nombre, estado,
         juntas!juntas_id_recinto_fkey ( id )
@@ -24,6 +24,23 @@ export default async function ParroquiaPage(props: { params: Params, searchParam
 
   if (error || !parroquia) notFound()
 
+  const userIds = [parroquia.created_by, parroquia.updated_by].filter(Boolean) as string[]
+  let createdByName: string | null = null
+  let updatedByName: string | null = null
+
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('id, display_name, email')
+      .in('id', userIds)
+
+    if (profiles) {
+      const profileMap = new Map(profiles.map(p => [p.id, p.display_name || p.email || p.id]))
+      if (parroquia.created_by) createdByName = profileMap.get(parroquia.created_by) ?? null
+      if (parroquia.updated_by) updatedByName = profileMap.get(parroquia.updated_by) ?? null
+    }
+  }
+
   const numRecintos = parroquia.recintos?.length ?? 0
   const numJuntas = parroquia.recintos?.reduce(
     (sum: number, r: { juntas?: { id: string }[] }) => sum + (r.juntas?.length ?? 0),
@@ -32,7 +49,13 @@ export default async function ParroquiaPage(props: { params: Params, searchParam
 
   return (
     <ParroquiaDetail
-      parroquia={{ ...parroquia, num_recintos: numRecintos, num_juntas: numJuntas }}
+      parroquia={{
+        ...parroquia,
+        num_recintos: numRecintos,
+        num_juntas: numJuntas,
+        created_by_name: createdByName,
+        updated_by_name: updatedByName,
+      }}
       initEditing={searchParams.edit === 'true'}
     />
   )

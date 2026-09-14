@@ -15,24 +15,33 @@ export type Database = {
       asignacion_juntas: {
         Row: {
           created_at: string
+          created_by: string | null
           estado: string
           id: string
           id_colaborador: string
           id_junta: string
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           estado?: string
           id?: string
           id_colaborador: string
           id_junta: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           estado?: string
           id?: string
           id_colaborador?: string
           id_junta?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -56,11 +65,14 @@ export type Database = {
           apellidos: string
           asiste_capacitacion: string
           created_at: string
+          created_by: string | null
           id: string
           id_recinto_asignado: string | null
           id_recinto_votacion: string | null
           nombres: string
           rol: string
+          updated_at: string
+          updated_by: string | null
           whatsapp: string
           ya_contactado: string
         }
@@ -68,11 +80,14 @@ export type Database = {
           apellidos: string
           asiste_capacitacion?: string
           created_at?: string
+          created_by?: string | null
           id?: string
           id_recinto_asignado?: string | null
           id_recinto_votacion?: string | null
           nombres: string
           rol: string
+          updated_at?: string
+          updated_by?: string | null
           whatsapp: string
           ya_contactado?: string
         }
@@ -80,11 +95,14 @@ export type Database = {
           apellidos?: string
           asiste_capacitacion?: string
           created_at?: string
+          created_by?: string | null
           id?: string
           id_recinto_asignado?: string | null
           id_recinto_votacion?: string | null
           nombres?: string
           rol?: string
+          updated_at?: string
+          updated_by?: string | null
           whatsapp?: string
           ya_contactado?: string
         }
@@ -108,27 +126,36 @@ export type Database = {
       juntas: {
         Row: {
           created_at: string
+          created_by: string | null
           estado: string
           id: string
           id_recinto: string
           numero: number
           sexo: string
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           estado?: string
           id?: string
           id_recinto: string
           numero: number
           sexo: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           estado?: string
           id?: string
           id_recinto?: string
           numero?: number
           sexo?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -143,21 +170,30 @@ export type Database = {
       observaciones_colaboradores: {
         Row: {
           created_at: string
+          created_by: string | null
           id: string
           id_colaborador: string
           texto: string
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           id?: string
           id_colaborador: string
           texto: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           id?: string
           id_colaborador?: string
           texto?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -169,51 +205,167 @@ export type Database = {
           },
         ]
       }
-      parroquias: {
+      cantones: {
         Row: {
           created_at: string
+          created_by: string | null
           estado: string
           id: string
           nombre: string
-          tipo: string
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           estado?: string
           id?: string
           nombre: string
-          tipo: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           estado?: string
           id?: string
           nombre?: string
-          tipo?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
+      }
+      circunscripciones: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          estado: string
+          id: string
+          id_canton: string
+          nombre: string
+          tipo: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          estado?: string
+          id?: string
+          id_canton: string
+          nombre: string
+          tipo: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          estado?: string
+          id?: string
+          id_canton?: string
+          nombre?: string
+          tipo?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "circunscripciones_id_canton_fkey"
+            columns: ["id_canton"]
+            isOneToOne: false
+            referencedRelation: "cantones"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      parroquias: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          estado: string
+          id: string
+          id_canton: string | null
+          id_circunscripcion: string | null
+          nombre: string
+          tipo: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          estado?: string
+          id?: string
+          id_canton?: string | null
+          id_circunscripcion?: string | null
+          nombre: string
+          tipo: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          estado?: string
+          id?: string
+          id_canton?: string | null
+          id_circunscripcion?: string | null
+          nombre?: string
+          tipo?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "parroquias_id_canton_fkey"
+            columns: ["id_canton"]
+            isOneToOne: false
+            referencedRelation: "cantones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "parroquias_id_circunscripcion_fkey"
+            columns: ["id_circunscripcion"]
+            isOneToOne: false
+            referencedRelation: "circunscripciones"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       recintos: {
         Row: {
           created_at: string
+          created_by: string | null
           estado: string
           id: string
           id_parroquia: string
+          id_zona: string | null
           nombre: string
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           estado?: string
           id?: string
           id_parroquia: string
+          id_zona?: string | null
           nombre: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           estado?: string
           id?: string
           id_parroquia?: string
+          id_zona?: string | null
           nombre?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -223,11 +375,79 @@ export type Database = {
             referencedRelation: "parroquias"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "recintos_id_zona_fkey"
+            columns: ["id_zona"]
+            isOneToOne: false
+            referencedRelation: "zonas"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      zonas: {
+        Row: {
+          codigo: string | null
+          created_at: string
+          created_by: string | null
+          estado: string
+          id: string
+          id_parroquia: string
+          nombre: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          codigo?: string | null
+          created_at?: string
+          created_by?: string | null
+          estado?: string
+          id?: string
+          id_parroquia: string
+          nombre: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          codigo?: string | null
+          created_at?: string
+          created_by?: string | null
+          estado?: string
+          id?: string
+          id_parroquia?: string
+          nombre?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zonas_id_parroquia_fkey"
+            columns: ["id_parroquia"]
+            isOneToOne: false
+            referencedRelation: "parroquias"
+            referencedColumns: ["id"]
+          }
         ]
       }
     }
     Views: {
-      [_ in never]: never
+      user_profiles: {
+        Row: {
+          id: string
+          email: string | null
+          display_name: string | null
+        }
+        Insert: {
+          id?: string
+          email?: string | null
+          display_name?: string | null
+        }
+        Update: {
+          id?: string
+          email?: string | null
+          display_name?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       create_recinto_with_juntas: {

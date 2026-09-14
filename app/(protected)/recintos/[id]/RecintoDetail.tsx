@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import Toast from '@/components/ui/Toast'
 import Link from 'next/link'
 import { useEnterSubmit } from '@/hooks/useEnterSubmit'
+import AuditInfo from '@/components/ui/AuditInfo'
 
 type Recinto = {
   id: string
@@ -15,6 +16,12 @@ type Recinto = {
   parroquia_nombre: string
   juntas_m: number
   juntas_f: number
+  created_at?: string
+  created_by?: string | null
+  created_by_name?: string | null
+  updated_at?: string
+  updated_by?: string | null
+  updated_by_name?: string | null
 }
 
 type Parroquia = { id: string; nombre: string }
@@ -193,6 +200,13 @@ export default function RecintoDetail({
             </span>
           </div>
         </div>
+
+        <AuditInfo
+          createdAt={recinto.created_at}
+          createdBy={recinto.created_by_name}
+          updatedAt={recinto.updated_at}
+          updatedBy={recinto.updated_by_name}
+        />
 
         {editing && (
           <>

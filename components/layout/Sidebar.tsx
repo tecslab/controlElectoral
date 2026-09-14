@@ -12,16 +12,22 @@ type NavItem = {
 }
 
 const mainNav: NavItem[] = [
+  { label: 'Cantones', href: '/cantones', icon: '🌆' },
+  { label: 'Circunscripciones', href: '/circunscripciones', icon: '🗺️' },
   { label: 'Parroquias', href: '/parroquias', icon: '🏘️' },
+  { label: 'Zonas', href: '/zonas', icon: '📍' },
   { label: 'Recintos', href: '/recintos', icon: '🏫' },
   { label: 'Colaboradores', href: '/colaboradores', icon: '👥' },
   { label: 'Dashboard', href: '/dashboard', icon: '📊' },
 ]
 
 const ingresoNav: NavItem[] = [
-  { label: 'Parroquias', href: '/parroquias/nueva', icon: '＋' },
-  { label: 'Recintos', href: '/recintos/nuevo', icon: '＋' },
-  { label: 'Colaboradores', href: '/colaboradores/nuevo', icon: '＋' },
+  { label: 'Cantón', href: '/cantones/nuevo', icon: '＋' },
+  { label: 'Circunscripción', href: '/circunscripciones/nueva', icon: '＋' },
+  { label: 'Parroquia', href: '/parroquias/nueva', icon: '＋' },
+  { label: 'Zona', href: '/zonas/nueva', icon: '＋' },
+  { label: 'Recinto', href: '/recintos/nuevo', icon: '＋' },
+  { label: 'Colaborador', href: '/colaboradores/nuevo', icon: '＋' },
 ]
 
 export default function Sidebar() {

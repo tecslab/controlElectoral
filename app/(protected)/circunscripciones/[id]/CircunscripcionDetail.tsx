@@ -5,16 +5,17 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Toast from '@/components/ui/Toast'
 import Link from 'next/link'
-import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 import AuditInfo from '@/components/ui/AuditInfo'
+import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 
-type Parroquia = {
+type Circunscripcion = {
   id: string
   nombre: string
   tipo: string
   estado: string
-  num_recintos: number
-  num_juntas: number
+  id_canton: string
+  canton_nombre: string
+  num_parroquias: number
   created_at?: string
   created_by?: string | null
   created_by_name?: string | null
@@ -23,36 +24,47 @@ type Parroquia = {
   updated_by_name?: string | null
 }
 
-export default function ParroquiaDetail({ parroquia, initEditing = false }: { parroquia: Parroquia, initEditing?: boolean }) {
+type Canton = { id: string; nombre: string }
+
+export default function CircunscripcionDetail({
+  circunscripcion,
+  cantones,
+  initEditing = false,
+}: {
+  circunscripcion: Circunscripcion
+  cantones: Canton[]
+  initEditing?: boolean
+}) {
   const router = useRouter()
   const supabase = createClient()
 
   const [editing, setEditing] = useState(initEditing)
-  const [nombre, setNombre] = useState(parroquia.nombre)
-  const [tipo, setTipo] = useState<'Urbana' | 'Rural'>(parroquia.tipo as 'Urbana' | 'Rural')
+  const [nombre, setNombre] = useState(circunscripcion.nombre)
+  const [idCanton, setIdCanton] = useState(circunscripcion.id_canton)
+  const [tipo, setTipo] = useState<'Urbana' | 'Rural'>(circunscripcion.tipo as 'Urbana' | 'Rural')
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
 
-  useEnterSubmit('#btn-guardar-parroquia', editing)
+  useEnterSubmit('#btn-guardar-circunscripcion', editing)
 
   async function handleSave() {
-    if (loading) return;
-    if (!nombre.trim()) {
-      setToast({ message: 'El nombre es obligatorio', type: 'error' })
+    if (loading) return
+    if (!nombre.trim() || !idCanton) {
+      setToast({ message: 'Nombre y Cantón son obligatorios', type: 'error' })
       return
     }
     setLoading(true)
     const { error } = await supabase
-      .from('parroquias')
-      .update({ nombre: nombre.trim(), tipo })
-      .eq('id', parroquia.id)
+      .from('circunscripciones')
+      .update({ nombre: nombre.trim(), id_canton: idCanton, tipo })
+      .eq('id', circunscripcion.id)
     setLoading(false)
 
     if (error) {
       setToast({ message: `Error al guardar: ${error.message}`, type: 'error' })
       return
     }
-    setToast({ message: 'Parroquia actualizada', type: 'success' })
+    setToast({ message: 'Circunscripción actualizada', type: 'success' })
     setEditing(false)
     router.refresh()
   }
@@ -61,17 +73,13 @@ export default function ParroquiaDetail({ parroquia, initEditing = false }: { pa
     <div style={{ maxWidth: '600px' }}>
       <div className="page-header">
         <div>
-          <Link href="/parroquias" style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', textDecoration: 'none' }}>
-            ← Parroquias
+          <Link href="/circunscripciones" style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', textDecoration: 'none' }}>
+            ← Circunscripciones
           </Link>
-          <h1 className="page-title" style={{ marginTop: '0.25rem' }}>{parroquia.nombre}</h1>
+          <h1 className="page-title" style={{ marginTop: '0.25rem' }}>{circunscripcion.nombre}</h1>
         </div>
         {!editing && (
-          <button
-            id="btn-editar-parroquia"
-            className="btn btn-secondary"
-            onClick={() => setEditing(true)}
-          >
+          <button id="btn-editar-circunscripcion" className="btn btn-secondary" onClick={() => setEditing(true)}>
             ✏️ Editar
           </button>
         )}
@@ -79,23 +87,38 @@ export default function ParroquiaDetail({ parroquia, initEditing = false }: { pa
 
       <div className="card">
         <div style={{ display: 'grid', gap: '1.25rem' }}>
-          {/* Nombre */}
           <div>
             <div className="label">Nombre</div>
             {editing ? (
               <input
-                id="edit-nombre-parroquia"
+                id="edit-nombre-circunscripcion"
                 type="text"
                 className="input"
                 value={nombre}
                 onChange={e => setNombre(e.target.value)}
               />
             ) : (
-              <div style={{ color: 'var(--color-text)', fontWeight: 500 }}>{parroquia.nombre}</div>
+              <div style={{ fontWeight: 500 }}>{circunscripcion.nombre}</div>
             )}
           </div>
 
-          {/* Tipo */}
+          <div>
+            <div className="label">Cantón</div>
+            {editing ? (
+              <select
+                className="input"
+                value={idCanton}
+                onChange={e => setIdCanton(e.target.value)}
+              >
+                {cantones.map(c => (
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                ))}
+              </select>
+            ) : (
+              <div style={{ color: 'var(--color-text-muted)' }}>{circunscripcion.canton_nombre}</div>
+            )}
+          </div>
+
           <div>
             <div className="label">Tipo</div>
             {editing ? (
@@ -119,42 +142,32 @@ export default function ParroquiaDetail({ parroquia, initEditing = false }: { pa
                 <span className={`toggle-label ${tipo === 'Rural' ? 'active' : ''}`}>Rural</span>
               </div>
             ) : (
-              <span className={`badge ${parroquia.tipo === 'Urbana' ? 'badge-blue' : 'badge-green'}`}>
-                {parroquia.tipo}
+              <span className={`badge ${circunscripcion.tipo === 'Urbana' ? 'badge-blue' : 'badge-green'}`}>
+                {circunscripcion.tipo}
               </span>
             )}
           </div>
 
-          {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
-              <div className="label">Número de Recintos</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary)' }}>
-                {parroquia.num_recintos}
-              </div>
-            </div>
-            <div>
-              <div className="label">Total Juntas</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary)' }}>
-                {parroquia.num_juntas}
-              </div>
+          <div>
+            <div className="label">Parroquias en esta Circunscripción</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--color-primary)' }}>
+              {circunscripcion.num_parroquias}
             </div>
           </div>
 
-          {/* Estado */}
           <div>
             <div className="label">Estado</div>
-            <span className={`badge ${parroquia.estado === 'Activo' ? 'badge-green' : 'badge-red'}`}>
-              {parroquia.estado}
+            <span className={`badge ${circunscripcion.estado === 'Activo' ? 'badge-green' : 'badge-red'}`}>
+              {circunscripcion.estado}
             </span>
           </div>
         </div>
 
         <AuditInfo
-          createdAt={parroquia.created_at}
-          createdBy={parroquia.created_by_name}
-          updatedAt={parroquia.updated_at}
-          updatedBy={parroquia.updated_by_name}
+          createdAt={circunscripcion.created_at}
+          createdBy={circunscripcion.created_by_name}
+          updatedAt={circunscripcion.updated_at}
+          updatedBy={circunscripcion.updated_by_name}
         />
 
         {editing && (
@@ -162,7 +175,7 @@ export default function ParroquiaDetail({ parroquia, initEditing = false }: { pa
             <div className="divider" />
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button
-                id="btn-guardar-parroquia"
+                id="btn-guardar-circunscripcion"
                 className="btn btn-primary"
                 onClick={handleSave}
                 disabled={loading}
@@ -173,8 +186,9 @@ export default function ParroquiaDetail({ parroquia, initEditing = false }: { pa
                 className="btn btn-secondary"
                 onClick={() => {
                   setEditing(false)
-                  setNombre(parroquia.nombre)
-                  setTipo(parroquia.tipo as 'Urbana' | 'Rural')
+                  setNombre(circunscripcion.nombre)
+                  setIdCanton(circunscripcion.id_canton)
+                  setTipo(circunscripcion.tipo as 'Urbana' | 'Rural')
                 }}
               >
                 Cancelar
@@ -184,9 +198,7 @@ export default function ParroquiaDetail({ parroquia, initEditing = false }: { pa
         )}
       </div>
 
-      {toast && (
-        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-      )}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   )
 }

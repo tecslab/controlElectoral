@@ -8,6 +8,7 @@ import Toast from '@/components/ui/Toast'
 import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 
 type Parroquia = { id: string; nombre: string }
+type Zona = { id: string; nombre: string; codigo?: string | null; id_parroquia: string }
 
 export default function NuevoRecintoPage() {
   const router = useRouter()
@@ -15,9 +16,14 @@ export default function NuevoRecintoPage() {
 
   const [nombre, setNombre] = useState('')
   const [idParroquia, setIdParroquia] = useState('')
+  const [idZona, setIdZona] = useState('')
   const [juntasM, setJuntasM] = useState('')
   const [juntasF, setJuntasF] = useState('')
+
   const [parroquias, setParroquias] = useState<Parroquia[]>([])
+  const [zonas, setZonas] = useState<Zona[]>([])
+  const [filteredZonas, setFilteredZonas] = useState<Zona[]>([])
+
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -36,7 +42,20 @@ export default function NuevoRecintoPage() {
 
     supabase.from('parroquias').select('id, nombre').eq('estado', 'Activo').order('nombre')
       .then(({ data }) => setParroquias(data ?? []))
+    supabase.from('zonas').select('id, nombre, codigo, id_parroquia').eq('estado', 'Activo').order('nombre')
+      .then(({ data }) => setZonas((data as Zona[]) ?? []))
   }, [])
+
+  useEffect(() => {
+    if (!idParroquia) {
+      setFilteredZonas([])
+      setIdZona('')
+      return
+    }
+    const filtered = zonas.filter(z => z.id_parroquia === idParroquia)
+    setFilteredZonas(filtered)
+    setIdZona('')
+  }, [idParroquia, zonas])
 
   function validate() {
     const errs: Record<string, string> = {}
@@ -59,7 +78,7 @@ export default function NuevoRecintoPage() {
     if (!validate()) return
 
     setLoading(true)
-    const { error } = await supabase.rpc('create_recinto_with_juntas', {
+    const { data: recintoId, error } = await supabase.rpc('create_recinto_with_juntas', {
       p_nombre: nombre.trim(),
       p_id_parroquia: idParroquia,
       p_juntas_m: parseInt(juntasM) || 0,
@@ -70,6 +89,10 @@ export default function NuevoRecintoPage() {
       setLoading(false)
       setToast({ message: `Error al crear recinto: ${error.message}`, type: 'error' })
       return
+    }
+
+    if (idZona && recintoId) {
+      await supabase.from('recintos').update({ id_zona: idZona }).eq('id', recintoId)
     }
 
     setToast({ message: 'Recinto creado exitosamente', type: 'success' })
@@ -267,6 +290,24 @@ export default function NuevoRecintoPage() {
               </select>
               {errors.parroquia && <span className="error-text">{errors.parroquia}</span>}
             </div>
+
+            {/* Zona */}
+            {idParroquia && filteredZonas.length > 0 && (
+              <div className="form-group full">
+                <label htmlFor="zona-recinto" className="label">Zona Electoral (Opcional)</label>
+                <select
+                  id="zona-recinto"
+                  className="input"
+                  value={idZona}
+                  onChange={e => setIdZona(e.target.value)}
+                >
+                  <option value="">Sin zona asignada</option>
+                  {filteredZonas.map(z => (
+                    <option key={z.id} value={z.id}>{z.codigo ? `[${z.codigo}] ` : ''}{z.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Juntas M */}
             <div className="form-group">

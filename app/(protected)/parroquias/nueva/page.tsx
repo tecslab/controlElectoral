@@ -1,21 +1,31 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Papa from 'papaparse'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Toast from '@/components/ui/Toast'
 import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 
+type Canton = { id: string; nombre: string }
+type Circunscripcion = { id: string; nombre: string; tipo: 'Urbana' | 'Rural'; id_canton: string }
+
 export default function NuevaParroquiaPage() {
   const router = useRouter()
   const supabase = createClient()
 
   const [nombre, setNombre] = useState('')
+  const [idCanton, setIdCanton] = useState('')
+  const [idCircunscripcion, setIdCircunscripcion] = useState('')
   const [tipo, setTipo] = useState<'Urbana' | 'Rural'>('Urbana')
+
+  const [cantones, setCantones] = useState<Canton[]>([])
+  const [circunscripciones, setCircunscripciones] = useState<Circunscripcion[]>([])
+  const [filteredCircunscripciones, setFilteredCircunscripciones] = useState<Circunscripcion[]>([])
+
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
-  const [errors, setErrors] = useState<{ nombre?: string }>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [rechazados, setRechazados] = useState<{ row: string[], error: string }[]>([])
@@ -23,8 +33,33 @@ export default function NuevaParroquiaPage() {
 
   useEnterSubmit('#btn-ingresar-parroquia')
 
+  useEffect(() => {
+    supabase.from('cantones').select('id, nombre').eq('estado', 'Activo').order('nombre')
+      .then(({ data }) => setCantones(data ?? []))
+    supabase.from('circunscripciones').select('id, nombre, tipo, id_canton').eq('estado', 'Activo').order('nombre')
+      .then(({ data }) => setCircunscripciones((data as Circunscripcion[]) ?? []))
+  }, [])
+
+  useEffect(() => {
+    if (!idCanton) {
+      setFilteredCircunscripciones([])
+      setIdCircunscripcion('')
+      return
+    }
+    const filtered = circunscripciones.filter(c => c.id_canton === idCanton)
+    setFilteredCircunscripciones(filtered)
+    setIdCircunscripcion('')
+  }, [idCanton, circunscripciones])
+
+  useEffect(() => {
+    if (idCircunscripcion) {
+      const circ = circunscripciones.find(c => c.id === idCircunscripcion)
+      if (circ) setTipo(circ.tipo)
+    }
+  }, [idCircunscripcion, circunscripciones])
+
   function validate() {
-    const errs: typeof errors = {}
+    const errs: Record<string, string> = {}
     if (!nombre.trim()) errs.nombre = 'El nombre es obligatorio'
     setErrors(errs)
     return Object.keys(errs).length === 0
@@ -39,6 +74,8 @@ export default function NuevaParroquiaPage() {
     const { error } = await supabase.from('parroquias').insert({
       nombre: nombre.trim(),
       tipo,
+      id_canton: idCanton || null,
+      id_circunscripcion: idCircunscripcion || null,
     })
 
     if (error) {
@@ -138,6 +175,8 @@ export default function NuevaParroquiaPage() {
     document.body.removeChild(link)
   }
 
+  const isTypeDisabled = Boolean(idCircunscripcion)
+
   return (
     <div style={{ maxWidth: '560px' }}>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -189,6 +228,39 @@ export default function NuevaParroquiaPage() {
 
       <div className="card">
         <form onSubmit={handleSubmit}>
+          {/* Cantón */}
+          <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+            <label htmlFor="canton-parroquia" className="label">Cantón (Opcional)</label>
+            <select
+              id="canton-parroquia"
+              className="input"
+              value={idCanton}
+              onChange={e => setIdCanton(e.target.value)}
+            >
+              <option value="">Seleccione un cantón</option>
+              {cantones.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </div>
+
+          {/* Circunscripción */}
+          {idCanton && filteredCircunscripciones.length > 0 && (
+            <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+              <label htmlFor="circunscripcion-parroquia" className="label">Circunscripción (Opcional)</label>
+              <select
+                id="circunscripcion-parroquia"
+                className="input"
+                value={idCircunscripcion}
+                onChange={e => setIdCircunscripcion(e.target.value)}
+              >
+                <option value="">Sin circunscripción</option>
+                {filteredCircunscripciones.map(c => (
+                  <option key={c.id} value={c.id}>{c.nombre} ({c.tipo})</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Nombre */}
           <div className="form-group" style={{ marginBottom: '1.25rem' }}>
             <label htmlFor="nombre-parroquia" className="label">Nombre *</label>
             <input
@@ -202,18 +274,26 @@ export default function NuevaParroquiaPage() {
             {errors.nombre && <span className="error-text">{errors.nombre}</span>}
           </div>
 
+          {/* Tipo */}
           <div className="form-group" style={{ marginBottom: '1.75rem' }}>
-            <label className="label">Tipo *</label>
-            <div className="toggle-wrapper">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+              <label className="label" style={{ marginBottom: 0 }}>Tipo *</label>
+              {isTypeDisabled && (
+                <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 500 }}>
+                  🔒 Heredado de la Circunscripción
+                </span>
+              )}
+            </div>
+            <div className="toggle-wrapper" style={{ opacity: isTypeDisabled ? 0.75 : 1, pointerEvents: isTypeDisabled ? 'none' : 'auto' }}>
               <span className={`toggle-label ${tipo === 'Urbana' ? 'active' : ''}`}>Urbana</span>
               <div
-                onClick={() => setTipo(t => t === 'Urbana' ? 'Rural' : 'Urbana')}
+                onClick={() => !isTypeDisabled && setTipo(t => t === 'Urbana' ? 'Rural' : 'Urbana')}
                 style={{
                   width: '44px', height: '24px',
                   borderRadius: '12px',
                   background: tipo === 'Rural' ? 'var(--color-success)' : 'var(--color-primary)',
                   position: 'relative',
-                  cursor: 'pointer',
+                  cursor: isTypeDisabled ? 'not-allowed' : 'pointer',
                   transition: 'background 0.2s',
                   flexShrink: 0,
                 }}

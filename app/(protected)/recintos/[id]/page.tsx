@@ -14,7 +14,7 @@ export default async function RecintoPage(props: { params: Params, searchParams:
     supabase
       .from('recintos')
       .select(`
-        id, nombre, estado, id_parroquia,
+        id, nombre, estado, id_parroquia, created_at, created_by, updated_at, updated_by,
         parroquias!recintos_id_parroquia_fkey ( nombre ),
         juntas!juntas_id_recinto_fkey ( id, numero, sexo, estado )
       `)
@@ -24,6 +24,23 @@ export default async function RecintoPage(props: { params: Params, searchParams:
   ])
 
   if (error || !recinto) notFound()
+
+  const userIds = [recinto.created_by, recinto.updated_by].filter(Boolean) as string[]
+  let createdByName: string | null = null
+  let updatedByName: string | null = null
+
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('user_profiles')
+      .select('id, display_name, email')
+      .in('id', userIds)
+
+    if (profiles) {
+      const profileMap = new Map(profiles.map(p => [p.id, p.display_name || p.email || p.id]))
+      if (recinto.created_by) createdByName = profileMap.get(recinto.created_by) ?? null
+      if (recinto.updated_by) updatedByName = profileMap.get(recinto.updated_by) ?? null
+    }
+  }
 
   const juntasM = (recinto.juntas ?? []).filter((j: { sexo: string; estado: string }) => j.sexo === 'M' && j.estado === 'Activo').length
   const juntasF = (recinto.juntas ?? []).filter((j: { sexo: string; estado: string }) => j.sexo === 'F' && j.estado === 'Activo').length
@@ -35,6 +52,8 @@ export default async function RecintoPage(props: { params: Params, searchParams:
         juntas_m: juntasM,
         juntas_f: juntasF,
         parroquia_nombre: (recinto.parroquias as { nombre: string } | null)?.nombre ?? '—',
+        created_by_name: createdByName,
+        updated_by_name: updatedByName,
       }}
       parroquias={parroquias ?? []}
       initEditing={searchParams.edit === 'true'}

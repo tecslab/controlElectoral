@@ -8,6 +8,7 @@ import RangeSelector from '@/components/ui/RangeSelector'
 import Link from 'next/link'
 import type { ColaboradorRaw } from './page'
 import { useEnterSubmit } from '@/hooks/useEnterSubmit'
+import AuditInfo from '@/components/ui/AuditInfo'
 
 type Recinto = { id: string; nombre: string; id_parroquia: string }
 type Junta = { id: string; numero: number; sexo: string; estado: string }
@@ -391,6 +392,13 @@ export default function ColaboradorDetail({
             </>
           )}
         </div>
+
+        <AuditInfo
+          createdAt={colaborador.created_at}
+          createdBy={colaborador.created_by_name}
+          updatedAt={colaborador.updated_at}
+          updatedBy={colaborador.updated_by_name}
+        />
 
         {editing && (
           <>
