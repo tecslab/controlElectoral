@@ -13,6 +13,7 @@ import AuditInfo from '@/components/ui/AuditInfo'
 type Recinto = { id: string; nombre: string; id_parroquia: string }
 type Junta = { id: string; numero: number; sexo: string; estado: string }
 type Parroquia = { id: string; nombre: string }
+type JuntaMode = '1junta' | 'rango'
 
 const CONTACTADO_OPTIONS = ['Sí', 'No', 'No responde', 'Volver a contactar']
 
@@ -31,24 +32,26 @@ export default function ColaboradorDetail({
   const supabase = createClient()
 
   const [editing, setEditing] = useState(initEditing)
+  // Use the assigned recinto as the single recinto (both fields are kept in sync)
   const [form, setForm] = useState({
     apellidos: colaborador.apellidos,
     nombres: colaborador.nombres,
     whatsapp: colaborador.whatsapp,
     ya_contactado: colaborador.ya_contactado,
     rol: colaborador.rol as 'MJRV' | 'Coordinador',
-    id_recinto_votacion: colaborador.id_recinto_votacion ?? '',
-    id_recinto_asignado: colaborador.id_recinto_asignado ?? '',
+    id_recinto: colaborador.id_recinto_asignado ?? '',
     asiste_capacitacion: colaborador.asiste_capacitacion,
   })
 
   const [juntasRecinto, setJuntasRecinto] = useState<Junta[]>([])
+  // Junta mode: single junta (default) or range
+  const [juntaMode, setJuntaMode] = useState<JuntaMode>('1junta')
+  const [selectedJuntaId, setSelectedJuntaId] = useState('')
   const [rangeM, setRangeM] = useState({ desde: 0, hasta: 0 })
   const [rangeF, setRangeF] = useState({ desde: 0, hasta: 0 })
   const [newObservacion, setNewObservacion] = useState('')
 
-  const [filtroParroquiaVotacion, setFiltroParroquiaVotacion] = useState('')
-  const [filtroParroquiaAsignado, setFiltroParroquiaAsignado] = useState('')
+  const [filtroParroquia, setFiltroParroquia] = useState('')
 
   const [loading, setLoading] = useState(false)
   const [savingObs, setSavingObs] = useState(false)
@@ -74,28 +77,37 @@ export default function ColaboradorDetail({
 
   // Load juntas when recinto changes in edit mode
   useEffect(() => {
-    if (!editing || !form.id_recinto_asignado) {
+    if (!editing || !form.id_recinto) {
       setJuntasRecinto([])
       return
     }
     supabase
       .from('juntas')
       .select('id, numero, sexo, estado')
-      .eq('id_recinto', form.id_recinto_asignado)
+      .eq('id_recinto', form.id_recinto)
       .eq('estado', 'Activo')
-      .order('numero')
+      .order('sexo').order('numero')
       .then(({ data }) => {
         setJuntasRecinto(data ?? [])
-        // Pre-fill ranges from current assignments if same recinto
-        if (form.id_recinto_asignado === colaborador.id_recinto_asignado) {
-          if (currentJuntasM.length) setRangeM({ desde: currentJuntasM[0].numero, hasta: currentJuntasM[currentJuntasM.length - 1].numero })
-          if (currentJuntasF.length) setRangeF({ desde: currentJuntasF[0].numero, hasta: currentJuntasF[currentJuntasF.length - 1].numero })
+        // If same recinto as before, pre-fill from existing assignments
+        if (form.id_recinto === colaborador.id_recinto_asignado) {
+          // Determine mode: if single junta assigned, use 1junta mode
+          if (activeAssignments.length === 1) {
+            setJuntaMode('1junta')
+            setSelectedJuntaId(activeAssignments[0].id ?? '')
+          } else if (activeAssignments.length > 1) {
+            setJuntaMode('rango')
+            if (currentJuntasM.length) setRangeM({ desde: currentJuntasM[0].numero, hasta: currentJuntasM[currentJuntasM.length - 1].numero })
+            if (currentJuntasF.length) setRangeF({ desde: currentJuntasF[0].numero, hasta: currentJuntasF[currentJuntasF.length - 1].numero })
+          }
         } else {
+          setJuntaMode('1junta')
+          setSelectedJuntaId('')
           setRangeM({ desde: 0, hasta: 0 })
           setRangeF({ desde: 0, hasta: 0 })
         }
       })
-  }, [form.id_recinto_asignado, editing])
+  }, [form.id_recinto, editing])
 
   function setField(key: string, value: string) {
     setForm(f => ({ ...f, [key]: value }))
@@ -115,7 +127,9 @@ export default function ColaboradorDetail({
     if (!validate()) return
     setLoading(true)
 
-    // Update colaborador base fields
+    const recintoId = form.id_recinto || null
+
+    // Update colaborador base fields — same recinto for both fields
     const { error: updateErr } = await supabase
       .from('colaboradores')
       .update({
@@ -124,8 +138,8 @@ export default function ColaboradorDetail({
         whatsapp: form.whatsapp,
         ya_contactado: form.ya_contactado,
         rol: form.rol,
-        id_recinto_votacion: form.id_recinto_votacion || null,
-        id_recinto_asignado: form.id_recinto_asignado || null,
+        id_recinto_votacion: recintoId,
+        id_recinto_asignado: recintoId,
         asiste_capacitacion: form.asiste_capacitacion,
       })
       .eq('id', colaborador.id)
@@ -137,7 +151,7 @@ export default function ColaboradorDetail({
     }
 
     // Update junta assignments (only for MJRV, only if recinto is set)
-    if (form.rol === 'MJRV' && form.id_recinto_asignado) {
+    if (form.rol === 'MJRV' && form.id_recinto) {
       // Mark all existing active assignments inactive
       await supabase
         .from('asignacion_juntas')
@@ -145,17 +159,21 @@ export default function ColaboradorDetail({
         .eq('id_colaborador', colaborador.id)
         .eq('estado', 'Activo')
 
-      // Collect new junta IDs from ranges
+      // Collect new junta IDs based on mode
       const juntasToAssign: string[] = []
-      if (rangeM.desde && rangeM.hasta) {
-        juntasRecinto
-          .filter(j => j.sexo === 'M' && j.numero >= rangeM.desde && j.numero <= rangeM.hasta)
-          .forEach(j => juntasToAssign.push(j.id))
-      }
-      if (rangeF.desde && rangeF.hasta) {
-        juntasRecinto
-          .filter(j => j.sexo === 'F' && j.numero >= rangeF.desde && j.numero <= rangeF.hasta)
-          .forEach(j => juntasToAssign.push(j.id))
+      if (juntaMode === '1junta') {
+        if (selectedJuntaId) juntasToAssign.push(selectedJuntaId)
+      } else {
+        if (rangeM.desde && rangeM.hasta) {
+          juntasRecinto
+            .filter(j => j.sexo === 'M' && j.numero >= rangeM.desde && j.numero <= rangeM.hasta)
+            .forEach(j => juntasToAssign.push(j.id))
+        }
+        if (rangeF.desde && rangeF.hasta) {
+          juntasRecinto
+            .filter(j => j.sexo === 'F' && j.numero >= rangeF.desde && j.numero <= rangeF.hasta)
+            .forEach(j => juntasToAssign.push(j.id))
+        }
       }
 
       if (juntasToAssign.length > 0) {
@@ -193,8 +211,7 @@ export default function ColaboradorDetail({
   }
 
   const isMJRV = form.rol === 'MJRV'
-  const recintosVotacion = filtroParroquiaVotacion ? recintos.filter(r => r.id_parroquia === filtroParroquiaVotacion) : recintos
-  const recintosAsignado = filtroParroquiaAsignado ? recintos.filter(r => r.id_parroquia === filtroParroquiaAsignado) : recintos
+  const recintosFiltrados = filtroParroquia ? recintos.filter(r => r.id_parroquia === filtroParroquia) : recintos
   const juntasM = juntasRecinto.filter(j => j.sexo === 'M')
   const juntasF = juntasRecinto.filter(j => j.sexo === 'F')
 
@@ -307,89 +324,124 @@ export default function ColaboradorDetail({
           Asignación electoral
         </div>
         <div className="form-grid" style={{ marginBottom: '1.5rem' }}>
+          {/* Parroquia filter — visible only in edit mode */}
           {editing && (
-            <>
-              <Field label="Parroquia de Votación" editing={editing}>
-                <select className="input" value={filtroParroquiaVotacion} onChange={e => {
-                  setFiltroParroquiaVotacion(e.target.value)
-                  setField('id_recinto_votacion', '')
-                }}>
-                  <option value="">Todas</option>
-                  {parroquias.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                </select>
-              </Field>
-
-              <Field label="Parroquia Asignada" editing={editing}>
-                <select className="input" value={filtroParroquiaAsignado} onChange={e => {
-                  setFiltroParroquiaAsignado(e.target.value)
-                  setField('id_recinto_asignado', '')
-                }}>
-                  <option value="">Todas</option>
-                  {parroquias.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-                </select>
-              </Field>
-            </>
+            <Field label="Filtrar por parroquia" editing={editing}>
+              <select className="input" value={filtroParroquia} onChange={e => {
+                setFiltroParroquia(e.target.value)
+                setField('id_recinto', '')
+              }}>
+                <option value="">Todas las parroquias</option>
+                {parroquias.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+              </select>
+            </Field>
           )}
 
-          <Field label="Recinto de Votación" editing={editing}>
+          {/* Unified Recinto */}
+          <Field label="Recinto" editing={editing}>
             {editing ? (
-              <select id="edit-recinto-votacion" className="input" value={form.id_recinto_votacion} onChange={e => setField('id_recinto_votacion', e.target.value)}>
+              <select id="edit-recinto" className="input" value={form.id_recinto} onChange={e => setField('id_recinto', e.target.value)}>
                 <option value="">No asignado</option>
-                {recintosVotacion.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-              </select>
-            ) : (
-              recintos.find(r => r.id === colaborador.id_recinto_votacion)?.nombre ?? 'No asignado'
-            )}
-          </Field>
-
-          <Field label="Recinto Asignado" editing={editing}>
-            {editing ? (
-              <select id="edit-recinto-asignado" className="input" value={form.id_recinto_asignado} onChange={e => setField('id_recinto_asignado', e.target.value)}>
-                <option value="">No asignado</option>
-                {recintosAsignado.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                {recintosFiltrados.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
               </select>
             ) : (
               recintos.find(r => r.id === colaborador.id_recinto_asignado)?.nombre ?? 'No asignado'
             )}
           </Field>
 
-          {/* Junta ranges */}
+          {/* Junta display — view mode */}
           {!editing && colaborador.rol === 'MJRV' && (
-            <>
-              <Field label="Juntas M asignadas">{currentRangeM}</Field>
-              <Field label="Juntas F asignadas">{currentRangeF}</Field>
-            </>
+            <Field label="Juntas asignadas">
+              {activeAssignments.length === 0
+                ? '—'
+                : activeAssignments.length === 1
+                  ? `Junta ${activeAssignments[0].numero}${activeAssignments[0].sexo}`
+                  : [currentRangeM, currentRangeF].filter(r => r !== '—').join(', ') || '—'
+              }
+            </Field>
           )}
 
-          {editing && isMJRV && form.id_recinto_asignado && (
-            <>
-              {juntasM.length > 0 && (
-                <div className="form-group full">
-                  <RangeSelector
-                    label="Juntas asignadas"
-                    sexo="M"
-                    juntas={juntasRecinto}
-                    desde={rangeM.desde}
-                    hasta={rangeM.hasta}
-                    onChange={(d, h) => setRangeM({ desde: d, hasta: h })}
-                    idPrefix="edit-colab"
-                  />
+          {/* Junta assignment — edit mode */}
+          {editing && isMJRV && form.id_recinto && juntasRecinto.length > 0 && (
+            <div className="form-group full">
+              {/* Mode toggle */}
+              <div style={{ marginBottom: '0.75rem' }}>
+                <div className="label" style={{ marginBottom: '0.4rem' }}>Modo de asignación de juntas</div>
+                <div className="radio-group">
+                  <label className={`radio-option ${juntaMode === '1junta' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="edit-junta-mode"
+                      value="1junta"
+                      checked={juntaMode === '1junta'}
+                      onChange={() => {
+                        setJuntaMode('1junta')
+                        setRangeM({ desde: 0, hasta: 0 })
+                        setRangeF({ desde: 0, hasta: 0 })
+                      }}
+                    />
+                    1 Sola junta
+                  </label>
+                  <label className={`radio-option ${juntaMode === 'rango' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="edit-junta-mode"
+                      value="rango"
+                      checked={juntaMode === 'rango'}
+                      onChange={() => {
+                        setJuntaMode('rango')
+                        setSelectedJuntaId('')
+                      }}
+                    />
+                    Rango de juntas
+                  </label>
                 </div>
-              )}
-              {juntasF.length > 0 && (
-                <div className="form-group full">
-                  <RangeSelector
-                    label="Juntas asignadas"
-                    sexo="F"
-                    juntas={juntasRecinto}
-                    desde={rangeF.desde}
-                    hasta={rangeF.hasta}
-                    onChange={(d, h) => setRangeF({ desde: d, hasta: h })}
-                    idPrefix="edit-colab"
-                  />
+              </div>
+
+              {juntaMode === '1junta' ? (
+                <div>
+                  <label htmlFor="edit-junta-unica" className="label">Junta</label>
+                  <select
+                    id="edit-junta-unica"
+                    className="input"
+                    value={selectedJuntaId}
+                    onChange={e => setSelectedJuntaId(e.target.value)}
+                  >
+                    <option value="">Sin asignar</option>
+                    {juntasRecinto.map(j => (
+                      <option key={j.id} value={j.id}>
+                        Junta {j.numero} — {j.sexo === 'M' ? 'Masculina' : 'Femenina'}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+              ) : (
+                <>
+                  {juntasM.length > 0 && (
+                    <RangeSelector
+                      label="Juntas asignadas"
+                      sexo="M"
+                      juntas={juntasRecinto}
+                      desde={rangeM.desde}
+                      hasta={rangeM.hasta}
+                      onChange={(d, h) => setRangeM({ desde: d, hasta: h })}
+                      idPrefix="edit-colab"
+                    />
+                  )}
+                  {juntasF.length > 0 && (
+                    <RangeSelector
+                      label="Juntas asignadas"
+                      sexo="F"
+                      juntas={juntasRecinto}
+                      desde={rangeF.desde}
+                      hasta={rangeF.hasta}
+                      onChange={(d, h) => setRangeF({ desde: d, hasta: h })}
+                      idPrefix="edit-colab"
+                    />
+                  )}
+                </>
               )}
-            </>
+            </div>
           )}
         </div>
 
@@ -417,10 +469,14 @@ export default function ColaboradorDetail({
                     whatsapp: colaborador.whatsapp,
                     ya_contactado: colaborador.ya_contactado,
                     rol: colaborador.rol as 'MJRV' | 'Coordinador',
-                    id_recinto_votacion: colaborador.id_recinto_votacion ?? '',
-                    id_recinto_asignado: colaborador.id_recinto_asignado ?? '',
+                    id_recinto: colaborador.id_recinto_asignado ?? '',
                     asiste_capacitacion: colaborador.asiste_capacitacion,
                   })
+                  setFiltroParroquia('')
+                  setJuntaMode('1junta')
+                  setSelectedJuntaId('')
+                  setRangeM({ desde: 0, hasta: 0 })
+                  setRangeF({ desde: 0, hasta: 0 })
                   setErrors({})
                 }}
               >

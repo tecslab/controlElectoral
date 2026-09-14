@@ -39,7 +39,7 @@ Debido a las dependencias de datos en la base de datos (relaciones jerárquicas)
              │
              ▼
 ┌─────────────────────────┐
-│   3. Colaboradores      │ (Requiere los IDs de Recintos de votación / asignados)
+│   3. Colaboradores      │ (Requiere el ID del Recinto)
 └─────────────────────────┘
 ```
 
@@ -119,24 +119,34 @@ Vaya a la barra lateral de navegación: **Ingresar información** ➔ **Colabora
 | **Columna 3** | `Whatsapp` | **Sí** | Número telefónico de 10 dígitos numéricos (ej. `0991234567`). Se filtran caracteres no numéricos. |
 | **Columna 4** | `ya_contactado` | No | `Sí` o `No` (Por defecto: `No`). |
 | **Columna 5** | `rol` | No | `MJRV` o `Coordinador` (Por defecto: `MJRV`). |
-| **Columna 6** | `id_recinto_votacion` | No | ID del Recinto donde vota el colaborador. Debe ser un ID de recinto válido existente. |
-| **Columna 7** | `id_recinto_asignado` | No | ID del Recinto asignado para trabajar. Debe ser un ID de recinto válido existente. |
-| **Columna 8** | `asiste_capacitacion`| No | `Sí` o `No` (Por defecto: `No`). |
-| **Columna 9** | `desde` | No | Número entero correspondiente a la junta inicial del rango asignado (solo aplica para rol `MJRV`). |
-| **Columna 10** | `hasta` | No | Número entero correspondiente a la junta final del rango asignado (solo aplica para rol `MJRV`). |
+| **Columna 6** | `recinto` | No | **ID único** del Recinto donde trabajará el colaborador. Se guarda automáticamente como recinto de votación y recinto asignado. |
+| **Columna 7** | `asiste_capacitacion` | No | `Sí` o `No` (Por defecto: `No`). |
+| **Columna 8** | `junta_numero` | No | Número entero de la junta específica a asignar (solo aplica para rol `MJRV`). Usar junto con `junta_sexo`. |
+| **Columna 9** | `junta_sexo` | No | `M` (Masculina) o `F` (Femenina). Usar junto con `junta_numero`. |
+| **Columna 10** | `desde` | No | Número inicial del rango de juntas a asignar (solo aplica para rol `MJRV`). Alternativo a `junta_numero`/`junta_sexo`. |
+| **Columna 11** | `hasta` | No | Número final del rango de juntas a asignar. Alternativo a `junta_numero`/`junta_sexo`. |
+
+> 💡 **Nota sobre asignación de juntas (Balotaje):** El sistema soporta dos modos de asignación en el CSV:
+> - **1 Sola junta**: Llenar las columnas `junta_numero` y `junta_sexo` (dejar `desde`/`hasta` vacíos).
+> - **Rango de juntas**: Llenar las columnas `desde` y `hasta` (dejar `junta_numero`/`junta_sexo` vacíos). Se asignan todas las juntas del rango (tanto M como F que existan en ese rango numérico).
+> - **Sin junta**: Dejar todas las columnas de juntas vacías. El colaborador queda registrado sin asignación de junta.
 
 ### 📝 Ejemplo del Archivo CSV (`colaboradores.csv`)
 ```csv
-Apellidos,Nombres,Whatsapp,ya_contactado,rol,id_recinto_votacion,id_recinto_asignado,asiste_capacitacion,desde,hasta
-Pérez Gómez,Juan Carlos,0991234567,Sí,MJRV,a1b2c3d4-e5f6-7890-abcd-ef1234567890,a1b2c3d4-e5f6-7890-abcd-ef1234567890,No,1,5
-Rodríguez,Ana María,0987654321,No,Coordinador,a1b2c3d4-e5f6-7890-abcd-ef1234567890,a1b2c3d4-e5f6-7890-abcd-ef1234567890,Sí,,
-Mendoza,Carlos,0951122334,No,MJRV,,,No,,
+Apellidos,Nombres,Whatsapp,ya_contactado,rol,recinto,asiste_capacitacion,junta_numero,junta_sexo,desde,hasta
+Pérez Gómez,Juan Carlos,0991234567,Sí,MJRV,a1b2c3d4-e5f6-7890-abcd-ef1234567890,No,4,M,,
+Rodríguez,Ana María,0987654321,No,Coordinador,a1b2c3d4-e5f6-7890-abcd-ef1234567890,Sí,,,, 
+Mendoza,Carlos,0951122334,No,MJRV,b2c3d4e5-f678-90ab-cdef-234567890abc,No,,,1,5
+Torres,Luis,0961122334,No,MJRV,,,No,,,,
 ```
+
+> Los guiones en la columna `recinto` de la última fila representan un campo vacío (sin recinto asignado todavía).
 
 ### ⚠️ Validaciones y Errores Posibles
 * **`Falta Nombres`**: La celda de nombres está vacía.
 * **`WhatsApp es obligatorio y debe tener exactamente 10 dígitos numéricos`**: El número ingresado no tiene 10 dígitos tras limpiar caracteres especiales.
-* **`Rango de juntas (X-Y) inválido o fuera de límite (máx N) para el recinto`**: Se especificó un rango `desde`/`hasta` inconsistente (ej. `desde` > `hasta`, `desde` < 1 o `hasta` mayor al total de juntas del recinto asignado).
+* **`Junta Nº{sexo} no encontrada o inactiva en el recinto`**: El número de junta y sexo especificados en `junta_numero`/`junta_sexo` no corresponden a una junta activa en el recinto indicado.
+* **`Rango de juntas (X-Y) inválido o fuera de límite (máx N)`**: Se especificó un rango `desde`/`hasta` inconsistente (ej. `desde` > `hasta`, `desde` < 1 o `hasta` mayor al total de juntas del recinto).
 
 ---
 

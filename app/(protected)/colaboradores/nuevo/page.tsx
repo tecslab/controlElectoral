@@ -12,6 +12,8 @@ type Recinto = { id: string; nombre: string; id_parroquia: string }
 type Junta = { id: string; numero: number; sexo: string; estado: string }
 type Parroquia = { id: string; nombre: string }
 
+type JuntaMode = '1junta' | 'rango'
+
 export default function NuevoColaboradorPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -21,10 +23,15 @@ export default function NuevoColaboradorPage() {
     nombres: '',
     whatsapp: '',
     rol: 'MJRV' as 'MJRV' | 'Coordinador',
-    id_recinto_votacion: '',
-    id_recinto_asignado: '',
+    id_recinto: '',
   })
   const [observaciones, setObservaciones] = useState<string[]>([''])
+
+  // Junta selection mode: single junta (default) or range
+  const [juntaMode, setJuntaMode] = useState<JuntaMode>('1junta')
+  // Single junta selection
+  const [selectedJuntaId, setSelectedJuntaId] = useState('')
+  // Range selection
   const [rangeM, setRangeM] = useState({ desde: 0, hasta: 0 })
   const [rangeF, setRangeF] = useState({ desde: 0, hasta: 0 })
 
@@ -35,8 +42,7 @@ export default function NuevoColaboradorPage() {
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const [filtroParroquiaVotacion, setFiltroParroquiaVotacion] = useState('')
-  const [filtroParroquiaAsignado, setFiltroParroquiaAsignado] = useState('')
+  const [filtroParroquia, setFiltroParroquia] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [rechazados, setRechazados] = useState<{ row: string[], error: string }[]>([])
@@ -44,25 +50,13 @@ export default function NuevoColaboradorPage() {
 
   useEnterSubmit('#btn-ingresar-colaborador')
 
-  // 1. Initialize from localStorage and fetch data on mount
+  // Initialize from localStorage and fetch data on mount
   useEffect(() => {
-    // Restore session preferences
     if (typeof window !== 'undefined') {
-      const pVotacion = localStorage.getItem('lastParroquiaVotacion')
-      const pAsignada = localStorage.getItem('lastParroquiaAsignada')
-      const rVotacion = localStorage.getItem('lastRecintoVotacion')
-      const rAsignado = localStorage.getItem('lastRecintoAsignado')
-
-      if (pVotacion) setFiltroParroquiaVotacion(pVotacion)
-      if (pAsignada) setFiltroParroquiaAsignado(pAsignada)
-      
-      if (rVotacion || rAsignado) {
-        setForm(f => ({
-          ...f,
-          id_recinto_votacion: rVotacion ?? '',
-          id_recinto_asignado: rAsignado ?? ''
-        }))
-      }
+      const p = localStorage.getItem('lastParroquia')
+      const r = localStorage.getItem('lastRecinto')
+      if (p) setFiltroParroquia(p)
+      if (r) setForm(f => ({ ...f, id_recinto: r }))
     }
 
     supabase.from('parroquias').select('id, nombre').eq('estado', 'Activo').order('nombre')
@@ -71,9 +65,11 @@ export default function NuevoColaboradorPage() {
       .then(({ data }) => setRecintos(data ?? []))
   }, [])
 
+  // Load juntas when recinto changes
   useEffect(() => {
-    if (!form.id_recinto_asignado) {
+    if (!form.id_recinto) {
       setJuntasRecinto([])
+      setSelectedJuntaId('')
       setRangeM({ desde: 0, hasta: 0 })
       setRangeF({ desde: 0, hasta: 0 })
       return
@@ -81,15 +77,16 @@ export default function NuevoColaboradorPage() {
     supabase
       .from('juntas')
       .select('id, numero, sexo, estado')
-      .eq('id_recinto', form.id_recinto_asignado)
+      .eq('id_recinto', form.id_recinto)
       .eq('estado', 'Activo')
-      .order('numero')
+      .order('sexo').order('numero')
       .then(({ data }) => {
         setJuntasRecinto(data ?? [])
+        setSelectedJuntaId('')
         setRangeM({ desde: 0, hasta: 0 })
         setRangeF({ desde: 0, hasta: 0 })
       })
-  }, [form.id_recinto_asignado])
+  }, [form.id_recinto])
 
   function setField(key: string, value: string) {
     setForm(f => ({ ...f, [key]: value }))
@@ -111,7 +108,9 @@ export default function NuevoColaboradorPage() {
 
     setLoading(true)
 
-    // 1. Insert colaborador
+    // The recinto is used for both voting and assigned (same recinto assumption for balotaje)
+    const recintoId = form.id_recinto || null
+
     const { data: colab, error: colabErr } = await supabase
       .from('colaboradores')
       .insert({
@@ -119,8 +118,8 @@ export default function NuevoColaboradorPage() {
         nombres: form.nombres.trim(),
         whatsapp: form.whatsapp.trim(),
         rol: form.rol,
-        id_recinto_votacion: form.id_recinto_votacion || null,
-        id_recinto_asignado: form.id_recinto_asignado || null,
+        id_recinto_votacion: recintoId,
+        id_recinto_asignado: recintoId,
         ya_contactado: 'No',
         asiste_capacitacion: 'No',
       })
@@ -135,22 +134,25 @@ export default function NuevoColaboradorPage() {
 
     const colaboradorId = colab.id
 
-    // 2. Insert junta assignments (MJRV only)
-    if (form.rol === 'MJRV' && form.id_recinto_asignado) {
+    // Insert junta assignments (MJRV only)
+    if (form.rol === 'MJRV' && form.id_recinto) {
       const juntasToAssign: string[] = []
 
-      // Collect junta IDs from range M
-      if (rangeM.desde && rangeM.hasta) {
-        juntasRecinto
-          .filter(j => j.sexo === 'M' && j.numero >= rangeM.desde && j.numero <= rangeM.hasta)
-          .forEach(j => juntasToAssign.push(j.id))
-      }
-
-      // Collect junta IDs from range F
-      if (rangeF.desde && rangeF.hasta) {
-        juntasRecinto
-          .filter(j => j.sexo === 'F' && j.numero >= rangeF.desde && j.numero <= rangeF.hasta)
-          .forEach(j => juntasToAssign.push(j.id))
+      if (juntaMode === '1junta') {
+        if (selectedJuntaId) juntasToAssign.push(selectedJuntaId)
+      } else {
+        // Collect from range M
+        if (rangeM.desde && rangeM.hasta) {
+          juntasRecinto
+            .filter(j => j.sexo === 'M' && j.numero >= rangeM.desde && j.numero <= rangeM.hasta)
+            .forEach(j => juntasToAssign.push(j.id))
+        }
+        // Collect from range F
+        if (rangeF.desde && rangeF.hasta) {
+          juntasRecinto
+            .filter(j => j.sexo === 'F' && j.numero >= rangeF.desde && j.numero <= rangeF.hasta)
+            .forEach(j => juntasToAssign.push(j.id))
+        }
       }
 
       if (juntasToAssign.length > 0) {
@@ -168,7 +170,7 @@ export default function NuevoColaboradorPage() {
       }
     }
 
-    // 3. Insert observations
+    // Insert observations
     const obsToInsert = observaciones.filter(o => o.trim())
     if (obsToInsert.length > 0) {
       await supabase.from('observaciones_colaboradores').insert(
@@ -191,6 +193,7 @@ export default function NuevoColaboradorPage() {
       complete: async (results) => {
         const data = results.data as string[][]
         let rowsToProcess = data
+        // Skip header row if present (detect by "nombres" in second column)
         if (rowsToProcess.length > 0 && rowsToProcess[0][1]?.trim().toLowerCase() === 'nombres') {
           rowsToProcess = rowsToProcess.slice(1)
         }
@@ -199,20 +202,23 @@ export default function NuevoColaboradorPage() {
         const rejected: any[] = []
 
         const { data: recintosData } = await supabase.from('recintos').select('id')
-        const { data: juntasData } = await supabase.from('juntas').select('id, id_recinto, numero').eq('estado', 'Activo')
+        const { data: juntasData } = await supabase.from('juntas').select('id, id_recinto, numero, sexo').eq('estado', 'Activo')
 
         const validRecintosIds = new Set(recintosData?.map(r => String(r.id)) || [])
         const juntasByRecinto = (juntasData || []).reduce((acc, j) => {
           if (!acc[j.id_recinto]) acc[j.id_recinto] = []
-          acc[j.id_recinto].push({ id: j.id, numero: j.numero })
+          acc[j.id_recinto].push({ id: j.id, numero: j.numero, sexo: j.sexo })
           return acc
-        }, {} as Record<string, { id: string, numero: number }[]>)
+        }, {} as Record<string, { id: string, numero: number, sexo: string }[]>)
 
         for (let i = 0; i < rowsToProcess.length; i++) {
           const row = rowsToProcess[i].map(c => c?.trim() || '')
+          // CSV columns: Apellidos, Nombres, Whatsapp, ya_contactado, rol, recinto, asiste_capacitacion,
+          //              junta_numero (opt), junta_sexo (opt), desde (opt), hasta (opt)
           const [
             apellidos = '', nombres = '', whatsapp = '', yaContactadoRaw = '', rolRaw = '',
-            votacion = '', asignado = '', asisteRaw = '', desdeRaw = '', hastaRaw = ''
+            recintoRaw = '', asisteRaw = '', juntaNumeroRaw = '', juntaSexoRaw = '',
+            desdeRaw = '', hastaRaw = ''
           ] = row
 
           let rejectReason = ''
@@ -222,29 +228,46 @@ export default function NuevoColaboradorPage() {
             rejectReason = 'WhatsApp es obligatorio y debe tener exactamente 10 dígitos numéricos'
           }
 
-          const votacionId = votacion && validRecintosIds.has(votacion) ? votacion : null
-          const asignadoId = asignado && validRecintosIds.has(asignado) ? asignado : null
-
-          let desde = desdeRaw ? parseInt(desdeRaw, 10) : null
-          let hasta = hastaRaw ? parseInt(hastaRaw, 10) : null
+          const recintoId = recintoRaw && validRecintosIds.has(recintoRaw) ? recintoRaw : null
 
           let juntasToAssign: string[] = []
           const rol = rolRaw || 'MJRV'
           let ya_contactado = yaContactadoRaw || 'No'
           if (ya_contactado.trim().toLowerCase() === 'si') ya_contactado = 'Sí'
-          
+
           let asiste_capacitacion = asisteRaw || 'No'
           if (asiste_capacitacion.trim().toLowerCase() === 'si') asiste_capacitacion = 'Sí'
 
-          if (!rejectReason && rol === 'MJRV' && asignadoId && desde !== null && hasta !== null && !isNaN(desde) && !isNaN(hasta)) {
-            const juntasOfRecinto = juntasByRecinto[asignadoId] || []
-            const maxJuntaNum = juntasOfRecinto.reduce((m, j) => Math.max(m, j.numero), 0)
-            
-            if (desde < 1 || hasta > maxJuntaNum || desde > hasta) {
-              rejectReason = `Rango de juntas (${desde}-${hasta}) inválido o fuera de límite (máx ${maxJuntaNum}) para el recinto`
-            } else {
-              juntasToAssign = juntasOfRecinto.filter(j => j.numero >= desde! && j.numero <= hasta!).map(j => j.id)
+          if (!rejectReason && rol === 'MJRV' && recintoId) {
+            const juntasOfRecinto = juntasByRecinto[recintoId] || []
+
+            // Mode 1: single junta (junta_numero + junta_sexo columns)
+            if (juntaNumeroRaw && juntaSexoRaw) {
+              const num = parseInt(juntaNumeroRaw, 10)
+              const sexo = juntaSexoRaw.toUpperCase()
+              if (!isNaN(num) && (sexo === 'M' || sexo === 'F')) {
+                const found = juntasOfRecinto.find(j => j.numero === num && j.sexo === sexo)
+                if (found) {
+                  juntasToAssign = [found.id]
+                } else {
+                  rejectReason = `Junta ${num}${sexo} no encontrada o inactiva en el recinto`
+                }
+              }
             }
+            // Mode 2: range (desde + hasta columns) — applies to both M and F
+            else if (desdeRaw && hastaRaw) {
+              const desde = parseInt(desdeRaw, 10)
+              const hasta = parseInt(hastaRaw, 10)
+              const maxJuntaNum = juntasOfRecinto.reduce((m, j) => Math.max(m, j.numero), 0)
+              if (isNaN(desde) || isNaN(hasta) || desde < 1 || hasta > maxJuntaNum || desde > hasta) {
+                rejectReason = `Rango de juntas (${desdeRaw}-${hastaRaw}) inválido o fuera de límite (máx ${maxJuntaNum})`
+              } else {
+                juntasToAssign = juntasOfRecinto
+                  .filter(j => j.numero >= desde && j.numero <= hasta)
+                  .map(j => j.id)
+              }
+            }
+            // No junta columns: allowed (collaborator without junta assignment)
           }
 
           if (rejectReason) {
@@ -256,8 +279,8 @@ export default function NuevoColaboradorPage() {
               whatsapp: whatsappClean,
               ya_contactado,
               rol,
-              id_recinto_votacion: votacionId,
-              id_recinto_asignado: asignadoId,
+              id_recinto_votacion: recintoId,
+              id_recinto_asignado: recintoId,
               asiste_capacitacion,
               _juntasToAssign: juntasToAssign
             })
@@ -308,7 +331,7 @@ export default function NuevoColaboradorPage() {
         setImportadosCount(validCols.length)
         setLoading(false)
         if (e.target) e.target.value = ''
-        
+
         if (validCols.length > 0) {
           setToast({ message: `Se importaron ${validCols.length} colaboradores correctamente.`, type: 'success' })
         } else {
@@ -320,7 +343,7 @@ export default function NuevoColaboradorPage() {
 
   const handleDownloadRechazados = () => {
     const csvData = rechazados.map(r => [...r.row, r.error])
-    const csvHeader = ['Apellidos', 'Nombres', 'Whatsapp', 'ya_contactado', 'rol', 'id_recinto_votacion', 'id_recinto_asignado', 'asiste_capacitacion', 'desde', 'hasta', 'Error']
+    const csvHeader = ['Apellidos', 'Nombres', 'Whatsapp', 'ya_contactado', 'rol', 'recinto', 'asiste_capacitacion', 'junta_numero', 'junta_sexo', 'desde', 'hasta', 'Error']
     const csv = Papa.unparse([csvHeader, ...csvData])
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
@@ -334,8 +357,9 @@ export default function NuevoColaboradorPage() {
   }
 
   const isMJRV = form.rol === 'MJRV'
-  const recintosVotacion = filtroParroquiaVotacion ? recintos.filter(r => r.id_parroquia === filtroParroquiaVotacion) : recintos
-  const recintosAsignado = filtroParroquiaAsignado ? recintos.filter(r => r.id_parroquia === filtroParroquiaAsignado) : recintos
+  const recintosFiltrados = filtroParroquia
+    ? recintos.filter(r => r.id_parroquia === filtroParroquia)
+    : recintos
   const juntasM = juntasRecinto.filter(j => j.sexo === 'M')
   const juntasF = juntasRecinto.filter(j => j.sexo === 'F')
 
@@ -461,113 +485,141 @@ export default function NuevoColaboradorPage() {
             Asignación electoral
           </div>
           <div className="form-grid" style={{ marginBottom: '1.5rem' }}>
+            {/* Parroquia filter */}
             <div className="form-group">
-              <label htmlFor="parroquia-votacion" className="label" style={{ color: 'var(--color-text-muted)' }}>Parroquia de Votación</label>
+              <label htmlFor="filtro-parroquia" className="label" style={{ color: 'var(--color-text-muted)' }}>
+                Filtrar por parroquia
+              </label>
               <select
-                id="parroquia-votacion"
+                id="filtro-parroquia"
                 className="input"
-                value={filtroParroquiaVotacion}
+                value={filtroParroquia}
                 onChange={e => {
                   const val = e.target.value
-                  setFiltroParroquiaVotacion(val)
-                  setField('id_recinto_votacion', '')
-                  localStorage.setItem('lastParroquiaVotacion', val)
-                  localStorage.removeItem('lastRecintoVotacion')
+                  setFiltroParroquia(val)
+                  setField('id_recinto', '')
+                  localStorage.setItem('lastParroquia', val)
+                  localStorage.removeItem('lastRecinto')
                 }}
               >
-                <option value="">Todas</option>
+                <option value="">Todas las parroquias</option>
                 {parroquias.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
               </select>
             </div>
 
+            {/* Unified recinto selector */}
             <div className="form-group">
-              <label htmlFor="parroquia-asignada" className="label" style={{ color: 'var(--color-text-muted)' }}>Parroquia Asignada</label>
+              <label htmlFor="recinto" className="label">Recinto</label>
               <select
-                id="parroquia-asignada"
+                id="recinto"
                 className="input"
-                value={filtroParroquiaAsignado}
+                value={form.id_recinto}
                 onChange={e => {
                   const val = e.target.value
-                  setFiltroParroquiaAsignado(val)
-                  setField('id_recinto_asignado', '')
-                  localStorage.setItem('lastParroquiaAsignada', val)
-                  localStorage.removeItem('lastRecintoAsignado')
-                }}
-              >
-                <option value="">Todas</option>
-                {parroquias.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="recinto-votacion" className="label">Recinto de Votación</label>
-              <select
-                id="recinto-votacion"
-                className="input"
-                value={form.id_recinto_votacion}
-                onChange={e => {
-                  const val = e.target.value
-                  setField('id_recinto_votacion', val)
-                  localStorage.setItem('lastRecintoVotacion', val)
+                  setField('id_recinto', val)
+                  localStorage.setItem('lastRecinto', val)
                 }}
               >
                 <option value="">No asignado</option>
-                {recintosVotacion.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                {recintosFiltrados.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
               </select>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="recinto-asignado" className="label">Recinto Asignado</label>
-              <select
-                id="recinto-asignado"
-                className="input"
-                value={form.id_recinto_asignado}
-                onChange={e => {
-                  const val = e.target.value
-                  setField('id_recinto_asignado', val)
-                  localStorage.setItem('lastRecintoAsignado', val)
-                }}
-              >
-                <option value="">No asignado</option>
-                {recintosAsignado.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-              </select>
-            </div>
+            {/* Junta assignment — only for MJRV */}
+            {isMJRV && form.id_recinto && juntasRecinto.length > 0 && (
+              <div className="form-group full">
+                {/* Mode toggle */}
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <div className="label" style={{ marginBottom: '0.4rem' }}>Modo de asignación de juntas</div>
+                  <div className="radio-group">
+                    <label className={`radio-option ${juntaMode === '1junta' ? 'selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="junta-mode"
+                        value="1junta"
+                        checked={juntaMode === '1junta'}
+                        onChange={() => {
+                          setJuntaMode('1junta')
+                          setRangeM({ desde: 0, hasta: 0 })
+                          setRangeF({ desde: 0, hasta: 0 })
+                        }}
+                      />
+                      1 Sola junta
+                    </label>
+                    <label className={`radio-option ${juntaMode === 'rango' ? 'selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="junta-mode"
+                        value="rango"
+                        checked={juntaMode === 'rango'}
+                        onChange={() => {
+                          setJuntaMode('rango')
+                          setSelectedJuntaId('')
+                        }}
+                      />
+                      Rango de juntas
+                    </label>
+                  </div>
+                </div>
 
-            {/* Junta ranges — only for MJRV */}
-            {isMJRV && form.id_recinto_asignado && (
-              <>
-                {juntasM.length > 0 && (
-                  <div className="form-group full">
-                    <RangeSelector
-                      label="Juntas asignadas"
-                      sexo="M"
-                      juntas={juntasRecinto}
-                      desde={rangeM.desde}
-                      hasta={rangeM.hasta}
-                      onChange={(d, h) => setRangeM({ desde: d, hasta: h })}
-                      idPrefix="nuevo-colab"
-                    />
+                {juntaMode === '1junta' ? (
+                  <div>
+                    <label htmlFor="junta-unica" className="label">Junta</label>
+                    <select
+                      id="junta-unica"
+                      className="input"
+                      value={selectedJuntaId}
+                      onChange={e => setSelectedJuntaId(e.target.value)}
+                    >
+                      <option value="">Sin asignar</option>
+                      {juntasRecinto.map(j => (
+                        <option key={j.id} value={j.id}>
+                          Junta {j.numero} — {j.sexo === 'M' ? 'Masculina' : 'Femenina'}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+                ) : (
+                  <>
+                    {juntasM.length > 0 && (
+                      <RangeSelector
+                        label="Juntas asignadas"
+                        sexo="M"
+                        juntas={juntasRecinto}
+                        desde={rangeM.desde}
+                        hasta={rangeM.hasta}
+                        onChange={(d, h) => setRangeM({ desde: d, hasta: h })}
+                        idPrefix="nuevo-colab"
+                      />
+                    )}
+                    {juntasF.length > 0 && (
+                      <RangeSelector
+                        label="Juntas asignadas"
+                        sexo="F"
+                        juntas={juntasRecinto}
+                        desde={rangeF.desde}
+                        hasta={rangeF.hasta}
+                        onChange={(d, h) => setRangeF({ desde: d, hasta: h })}
+                        idPrefix="nuevo-colab"
+                      />
+                    )}
+                  </>
                 )}
-                {juntasF.length > 0 && (
-                  <div className="form-group full">
-                    <RangeSelector
-                      label="Juntas asignadas"
-                      sexo="F"
-                      juntas={juntasRecinto}
-                      desde={rangeF.desde}
-                      hasta={rangeF.hasta}
-                      onChange={(d, h) => setRangeF({ desde: d, hasta: h })}
-                      idPrefix="nuevo-colab"
-                    />
-                  </div>
-                )}
-              </>
+              </div>
             )}
-            {isMJRV && !form.id_recinto_asignado && (
+
+            {isMJRV && form.id_recinto && juntasRecinto.length === 0 && (
               <div className="form-group full">
                 <p style={{ color: 'var(--color-text-faint)', fontSize: '0.85rem' }}>
-                  Seleccione un Recinto Asignado para configurar las juntas.
+                  Este recinto no tiene juntas activas registradas.
+                </p>
+              </div>
+            )}
+
+            {isMJRV && !form.id_recinto && (
+              <div className="form-group full">
+                <p style={{ color: 'var(--color-text-faint)', fontSize: '0.85rem' }}>
+                  Seleccione un Recinto para configurar las juntas.
                 </p>
               </div>
             )}
