@@ -13,7 +13,9 @@ type Recinto = {
   nombre: string
   estado: string
   id_parroquia: string
+  id_zona?: string | null
   parroquia_nombre: string
+  zona_nombre?: string | null
   juntas_m: number
   juntas_f: number
   created_at?: string
@@ -25,14 +27,17 @@ type Recinto = {
 }
 
 type Parroquia = { id: string; nombre: string }
+type Zona = { id: string; nombre: string; codigo?: string | null; id_parroquia: string }
 
 export default function RecintoDetail({
   recinto,
   parroquias,
+  zonas = [],
   initEditing = false,
 }: {
   recinto: Recinto
   parroquias: Parroquia[]
+  zonas?: Zona[]
   initEditing?: boolean
 }) {
   const router = useRouter()
@@ -41,11 +46,14 @@ export default function RecintoDetail({
   const [editing, setEditing] = useState(initEditing)
   const [nombre, setNombre] = useState(recinto.nombre)
   const [idParroquia, setIdParroquia] = useState(recinto.id_parroquia)
+  const [idZona, setIdZona] = useState(recinto.id_zona ?? '')
   const [juntasM, setJuntasM] = useState(String(recinto.juntas_m))
   const [juntasF, setJuntasF] = useState(String(recinto.juntas_f))
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const filteredZonas = zonas.filter(z => z.id_parroquia === idParroquia)
 
   useEnterSubmit('#btn-guardar-recinto', editing)
 
@@ -69,7 +77,7 @@ export default function RecintoDetail({
     // Update recinto basic info
     const { error: recintoError } = await supabase
       .from('recintos')
-      .update({ nombre: nombre.trim(), id_parroquia: idParroquia })
+      .update({ nombre: nombre.trim(), id_parroquia: idParroquia, id_zona: idZona || null })
       .eq('id', recinto.id)
 
     if (recintoError) {
@@ -140,7 +148,11 @@ export default function RecintoDetail({
                 id="edit-parroquia-recinto"
                 className={`input ${errors.parroquia ? 'input-error' : ''}`}
                 value={idParroquia}
-                onChange={e => setIdParroquia(e.target.value)}
+                onChange={e => {
+                  const newParroquia = e.target.value
+                  setIdParroquia(newParroquia)
+                  setIdZona('')
+                }}
               >
                 {parroquias.map(p => (
                   <option key={p.id} value={p.id}>{p.nombre}</option>
@@ -151,6 +163,30 @@ export default function RecintoDetail({
             )}
             {errors.parroquia && <span className="error-text">{errors.parroquia}</span>}
           </div>
+
+          {/* Zona */}
+          {(editing ? filteredZonas.length > 0 : (recinto.zona_nombre || filteredZonas.length > 0)) && (
+            <div>
+              <div className="label">Zona Electoral</div>
+              {editing ? (
+                <select
+                  id="edit-zona-recinto"
+                  className="input"
+                  value={idZona}
+                  onChange={e => setIdZona(e.target.value)}
+                >
+                  <option value="">Sin zona asignada</option>
+                  {filteredZonas.map(z => (
+                    <option key={z.id} value={z.id}>{z.codigo ? `[${z.codigo}] ` : ''}{z.nombre}</option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{ color: 'var(--color-text-muted)' }}>
+                  {recinto.zona_nombre ?? 'Sin zona asignada'}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Juntas */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -239,6 +275,7 @@ export default function RecintoDetail({
                   setEditing(false)
                   setNombre(recinto.nombre)
                   setIdParroquia(recinto.id_parroquia)
+                  setIdZona(recinto.id_zona ?? '')
                   setJuntasM(String(recinto.juntas_m))
                   setJuntasF(String(recinto.juntas_f))
                   setErrors({})

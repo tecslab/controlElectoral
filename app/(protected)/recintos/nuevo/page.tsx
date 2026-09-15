@@ -40,9 +40,9 @@ export default function NuevoRecintoPage() {
       if (lastParroquia) setIdParroquia(lastParroquia)
     }
 
-    supabase.from('parroquias').select('id, nombre').eq('estado', 'Activo').order('nombre')
+    supabase.from('parroquias').select('id, nombre').neq('estado', 'Inactivo').order('nombre')
       .then(({ data }) => setParroquias(data ?? []))
-    supabase.from('zonas').select('id, nombre, codigo, id_parroquia').eq('estado', 'Activo').order('nombre')
+    supabase.from('zonas').select('id, nombre, codigo, id_parroquia').neq('estado', 'Inactivo').order('nombre')
       .then(({ data }) => setZonas((data as Zona[]) ?? []))
   }, [])
 
