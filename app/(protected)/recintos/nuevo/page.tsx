@@ -17,8 +17,11 @@ export default function NuevoRecintoPage() {
   const [nombre, setNombre] = useState('')
   const [idParroquia, setIdParroquia] = useState('')
   const [idZona, setIdZona] = useState('')
-  const [juntasM, setJuntasM] = useState('')
-  const [juntasF, setJuntasF] = useState('')
+
+  const [juntasMDesde, setJuntasMDesde] = useState('')
+  const [juntasMHasta, setJuntasMHasta] = useState('')
+  const [juntasFDesde, setJuntasFDesde] = useState('')
+  const [juntasFHasta, setJuntasFHasta] = useState('')
 
   const [parroquias, setParroquias] = useState<Parroquia[]>([])
   const [zonas, setZonas] = useState<Zona[]>([])
@@ -52,22 +55,56 @@ export default function NuevoRecintoPage() {
       setIdZona('')
       return
     }
+
+    // First filter from cached state
     const filtered = zonas.filter(z => z.id_parroquia === idParroquia)
     setFilteredZonas(filtered)
+
+    // Also fetch directly from Supabase for this specific parroquia
+    supabase
+      .from('zonas')
+      .select('id, nombre, codigo, id_parroquia')
+      .eq('id_parroquia', idParroquia)
+      .neq('estado', 'Inactivo')
+      .order('nombre')
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Error fetching zonas:', error)
+        } else if (data && data.length > 0) {
+          setFilteredZonas(data as Zona[])
+        }
+      })
+
     setIdZona('')
   }, [idParroquia, zonas])
+
+  const mDesde = parseInt(juntasMDesde) || 0
+  const mHasta = parseInt(juntasMHasta) || 0
+  const totalM = (mDesde > 0 && mHasta >= mDesde) ? (mHasta - mDesde + 1) : 0
+
+  const fDesde = parseInt(juntasFDesde) || 0
+  const fHasta = parseInt(juntasFHasta) || 0
+  const totalF = (fDesde > 0 && fHasta >= fDesde) ? (fHasta - fDesde + 1) : 0
 
   function validate() {
     const errs: Record<string, string> = {}
     if (!nombre.trim()) errs.nombre = 'El nombre es obligatorio'
     if (!idParroquia) errs.parroquia = 'Seleccione una parroquia'
-    const m = parseInt(juntasM)
-    const f = parseInt(juntasF)
-    if (isNaN(m) || m < 0 || m > 70) errs.juntasM = 'Ingrese un número entre 0 y 70'
-    if (isNaN(f) || f < 0 || f > 70) errs.juntasF = 'Ingrese un número entre 0 y 70'
-    if (!errs.juntasM && !errs.juntasF && m === 0 && f === 0) {
-      errs.juntasM = 'Debe haber al menos una junta'
+
+    if (juntasMDesde || juntasMHasta) {
+      if (!mDesde || mDesde < 1) errs.juntasM = 'Número "Desde" inválido'
+      else if (!mHasta || mHasta < mDesde) errs.juntasM = '"Hasta" debe ser mayor o igual a "Desde"'
     }
+
+    if (juntasFDesde || juntasFHasta) {
+      if (!fDesde || fDesde < 1) errs.juntasF = 'Número "Desde" inválido'
+      else if (!fHasta || fHasta < fDesde) errs.juntasF = '"Hasta" debe ser mayor o igual a "Desde"'
+    }
+
+    if (!errs.juntasM && !errs.juntasF && totalM === 0 && totalF === 0) {
+      errs.juntasM = 'Debe definir al menos un rango válido de juntas (M o F)'
+    }
+
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -81,8 +118,10 @@ export default function NuevoRecintoPage() {
     const { data: recintoId, error } = await supabase.rpc('create_recinto_with_juntas', {
       p_nombre: nombre.trim(),
       p_id_parroquia: idParroquia,
-      p_juntas_m: parseInt(juntasM) || 0,
-      p_juntas_f: parseInt(juntasF) || 0,
+      p_juntas_m_desde: mDesde,
+      p_juntas_m_hasta: mHasta,
+      p_juntas_f_desde: fDesde,
+      p_juntas_f_hasta: fHasta,
     })
 
     if (error) {
@@ -121,37 +160,50 @@ export default function NuevoRecintoPage() {
 
         for (let i = 0; i < rowsToProcess.length; i++) {
           const row = rowsToProcess[i].map(c => c?.trim() || '')
-          const [nombreRaw = '', parroquiaRaw = '', juntasMRaw = '', juntasFRaw = ''] = row
-
           let rejectReason = ''
-          const nombre = nombreRaw.trim()
+
+          const nombre = row[0]?.trim() || ''
           if (!nombre) {
             rejectReason = 'Falta Nombre'
           }
 
-          const idParroquia = parroquiaRaw.trim()
+          const idParroquia = row[1]?.trim() || ''
           if (!idParroquia || !validParroquiaIds.has(idParroquia)) {
             rejectReason = rejectReason || 'ID Parroquia no presente o inválido'
           }
 
-          const m = parseInt(juntasMRaw, 10)
-          if (!juntasMRaw || isNaN(m) || m < 0 || m > 70) {
-            rejectReason = rejectReason || 'Juntas Masculinas inválidas (debe ser número 0-70)'
+          let mD = 0, mH = 0, fD = 0, fH = 0
+
+          if (row.length >= 6) {
+            // New Range Format: nombre, id_parroquia, m_desde, m_hasta, f_desde, f_hasta
+            mD = parseInt(row[2], 10) || 0
+            mH = parseInt(row[3], 10) || 0
+            fD = parseInt(row[4], 10) || 0
+            fH = parseInt(row[5], 10) || 0
+
+            if ((mD > 0 && mH < mD) || (fD > 0 && fH < fD)) {
+              rejectReason = rejectReason || 'Rango de juntas inválido (Hasta debe ser >= Desde)'
+            }
+          } else {
+            // Legacy Quantity Format: nombre, id_parroquia, juntas_m, juntas_f
+            const mCount = parseInt(row[2], 10) || 0
+            const fCount = parseInt(row[3], 10) || 0
+
+            if (mCount > 0) { mD = 1; mH = mCount; }
+            if (fCount > 0) { fD = 1; fH = fCount; }
           }
 
-          const f = parseInt(juntasFRaw, 10)
-          if (!juntasFRaw || isNaN(f) || f < 0 || f > 70) {
-            rejectReason = rejectReason || 'Juntas Femeninas inválidas (debe ser número 0-70)'
-          }
+          const tM = (mD > 0 && mH >= mD) ? (mH - mD + 1) : 0
+          const tF = (fD > 0 && fH >= fD) ? (fH - fD + 1) : 0
 
-          if (!rejectReason && m === 0 && f === 0) {
+          if (!rejectReason && tM === 0 && tF === 0) {
              rejectReason = 'Debe haber al menos una junta (M o F)'
           }
 
           if (rejectReason) {
             rejected.push({ row, error: rejectReason })
           } else {
-            validCols.push({ nombre, idParroquia, m, f })
+            validCols.push({ nombre, idParroquia, mD, mH, fD, fH })
           }
         }
 
@@ -161,12 +213,14 @@ export default function NuevoRecintoPage() {
             const { error } = await supabase.rpc('create_recinto_with_juntas', {
               p_nombre: col.nombre,
               p_id_parroquia: col.idParroquia,
-              p_juntas_m: col.m,
-              p_juntas_f: col.f,
+              p_juntas_m_desde: col.mD,
+              p_juntas_m_hasta: col.mH,
+              p_juntas_f_desde: col.fD,
+              p_juntas_f_hasta: col.fH,
             })
             if (error) {
                rejected.push({
-                 row: [col.nombre, col.idParroquia, String(col.m), String(col.f)],
+                 row: [col.nombre, col.idParroquia, String(col.mD), String(col.mH), String(col.fD), String(col.fH)],
                  error: `Error BD: ${error.message}`
                })
             } else {
@@ -179,7 +233,7 @@ export default function NuevoRecintoPage() {
         setImportadosCount(importados)
         setLoading(false)
         if (e.target) e.target.value = ''
-        
+
         if (importados > 0) {
           setToast({ message: `Se importaron ${importados} recintos correctamente.`, type: 'success' })
         } else if (rejected.length > 0) {
@@ -191,7 +245,7 @@ export default function NuevoRecintoPage() {
 
   const handleDownloadRechazados = () => {
     const csvData = rechazados.map(r => [...r.row, r.error])
-    const csvHeader = ['Nombre', 'Parroquia', 'Juntas Masculinas', 'Juntas Femeninas', 'Error']
+    const csvHeader = ['Nombre', 'Parroquia', 'M Desde', 'M Hasta', 'F Desde', 'F Hasta', 'Error']
     const csv = Papa.unparse([csvHeader, ...csvData])
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
@@ -309,36 +363,78 @@ export default function NuevoRecintoPage() {
               </div>
             )}
 
-            {/* Juntas M */}
-            <div className="form-group">
-              <label htmlFor="juntas-m" className="label">Juntas Masculinas (M) *</label>
-              <input
-                id="juntas-m"
-                type="number"
-                className={`input ${errors.juntasM ? 'input-error' : ''}`}
-                placeholder="0"
-                value={juntasM}
-                onChange={e => setJuntasM(e.target.value)}
-                min={0}
-                max={70}
-              />
-              {errors.juntasM && <span className="error-text">{errors.juntasM}</span>}
+            {/* Juntas M Range */}
+            <div className="form-group full" style={{ background: 'var(--color-surface-2)', padding: '0.85rem', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <label className="label" style={{ marginBottom: 0 }}>Juntas Masculinas (M)</label>
+                <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                  Total: <strong>{totalM}</strong> junta{totalM !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label htmlFor="juntas-m-desde" style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Desde (Nº)</label>
+                  <input
+                    id="juntas-m-desde"
+                    type="number"
+                    className="input"
+                    placeholder="Ej. 1"
+                    value={juntasMDesde}
+                    onChange={e => setJuntasMDesde(e.target.value)}
+                    min={1}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="juntas-m-hasta" style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Hasta (Nº)</label>
+                  <input
+                    id="juntas-m-hasta"
+                    type="number"
+                    className="input"
+                    placeholder="Ej. 20"
+                    value={juntasMHasta}
+                    onChange={e => setJuntasMHasta(e.target.value)}
+                    min={1}
+                  />
+                </div>
+              </div>
+              {errors.juntasM && <span className="error-text" style={{ marginTop: '0.4rem', display: 'block' }}>{errors.juntasM}</span>}
             </div>
 
-            {/* Juntas F */}
-            <div className="form-group">
-              <label htmlFor="juntas-f" className="label">Juntas Femeninas (F) *</label>
-              <input
-                id="juntas-f"
-                type="number"
-                className={`input ${errors.juntasF ? 'input-error' : ''}`}
-                placeholder="0"
-                value={juntasF}
-                onChange={e => setJuntasF(e.target.value)}
-                min={0}
-                max={70}
-              />
-              {errors.juntasF && <span className="error-text">{errors.juntasF}</span>}
+            {/* Juntas F Range */}
+            <div className="form-group full" style={{ background: 'var(--color-surface-2)', padding: '0.85rem', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <label className="label" style={{ marginBottom: 0 }}>Juntas Femeninas (F)</label>
+                <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                  Total: <strong>{totalF}</strong> junta{totalF !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label htmlFor="juntas-f-desde" style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Desde (Nº)</label>
+                  <input
+                    id="juntas-f-desde"
+                    type="number"
+                    className="input"
+                    placeholder="Ej. 24"
+                    value={juntasFDesde}
+                    onChange={e => setJuntasFDesde(e.target.value)}
+                    min={1}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="juntas-f-hasta" style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Hasta (Nº)</label>
+                  <input
+                    id="juntas-f-hasta"
+                    type="number"
+                    className="input"
+                    placeholder="Ej. 28"
+                    value={juntasFHasta}
+                    onChange={e => setJuntasFHasta(e.target.value)}
+                    min={1}
+                  />
+                </div>
+              </div>
+              {errors.juntasF && <span className="error-text" style={{ marginTop: '0.4rem', display: 'block' }}>{errors.juntasF}</span>}
             </div>
           </div>
 

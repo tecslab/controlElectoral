@@ -79,29 +79,38 @@ Vaya a la barra lateral de navegación: **Ingresar información** ➔ **Recintos
 
 ### 📄 Estructura de Columnas del CSV
 
+El sistema soporta el formato por **Rangos de Juntas** (6 columnas) y mantiene retrocompatibilidad con el formato simple por **Cantidad** (4 columnas).
+
+#### Opción A: Formato por Rangos de Juntas (Recomendado - 6 columnas)
+Permite especificar los números exactos de inicio y fin de las juntas para recintos que no comienzan desde la Junta 1.
+
 | Columna | Nombre de Campo | Requerido | Valores Permitidos / Reglas |
 | :--- | :--- | :---: | :--- |
-| **Columna 1** | `Nombre` | **Sí** | Nombre del recinto electoral (ej. *Unidad Educativa Eloy Alfaro*). |
+| **Columna 1** | `Nombre` | **Sí** | Nombre del recinto electoral (ej. *UPC - Coliseo*). |
 | **Columna 2** | `Parroquia` | **Sí** | **ID único** de la Parroquia existente en la base de datos (UUID registrado previamente). |
-| **Columna 3** | `Juntas Masculinas` | **Sí** | Número entero entre `0` y `70`. |
-| **Columna 4** | `Juntas Femeninas` | **Sí** | Número entero entre `0` y `70`. |
+| **Columna 3** | `M Desde` | No | Número inicial de Junta Masculina (ej. `1`). |
+| **Columna 4** | `M Hasta` | No | Número final de Junta Masculina (ej. `20`). Debe ser `>= M Desde`. |
+| **Columna 5** | `F Desde` | No | Número inicial de Junta Femenina (ej. `24`). |
+| **Columna 6** | `F Hasta` | No | Número final de Junta Femenina (ej. `28`). Debe ser `>= F Desde`. |
 
-> 💡 **Nota importante sobre Juntas:** El recinto debe contar con al menos 1 junta en total (la suma de juntas masculinas + femeninas debe ser mayor a 0). Al crearse el recinto, el sistema creará automáticamente la secuencia de juntas asociadas.
+#### Opción B: Formato por Cantidad Simple (Legacy - 4 columnas)
+Si solo se especifican `Juntas Masculinas` y `Juntas Femeninas` como números simples (ej. `10, 12`), el sistema creará automáticamente los rangos del `1` al `10` para M y del `1` al `12` para F.
 
-### 📝 Ejemplo del Archivo CSV (`recintos.csv`)
+### 📝 Ejemplo del Archivo CSV por Rangos (`recintos.csv`)
 ```csv
-Nombre,Parroquia,Juntas Masculinas,Juntas Femeninas
-Escuela Fiscal Eloy Alfaro,c8a1b2c3-4567-89ab-cdef-0123456789ab,10,12
-Colegio Vicente Rocafuerte,c8a1b2c3-4567-89ab-cdef-0123456789ab,15,15
-Unidad Educativa Chongón,f9b2c3d4-5678-90ab-cdef-123456789abc,5,5
+Nombre,Parroquia,M_Desde,M_Hasta,F_Desde,F_Hasta
+Escuela Fiscal Eloy Alfaro,c8a1b2c3-4567-89ab-cdef-0123456789ab,1,20,1,20
+UPC - Coliseo,c8a1b2c3-4567-89ab-cdef-0123456789ab,1,15,24,28
+Colegio Vicente Rocafuerte,f9b2c3d4-5678-90ab-cdef-123456789abc,,,,,29,50
 ```
+
+> 💡 **Nota sobre Juntas:** El recinto debe contar con al menos 1 junta activa en total (la suma de juntas M + F debe ser mayor a 0). Al crearse el recinto, el sistema creará automáticamente las juntas asociadas en el rango numérico especificado.
 
 ### ⚠️ Validaciones y Errores Posibles
 * **`Falta Nombre`**: El nombre del recinto está vacío.
 * **`ID Parroquia no presente o inválido`**: El ID de parroquia especificado no existe o está desactivado en la base de datos.
-* **`Juntas Masculinas inválidas (debe ser número 0-70)`**: Valor no numérico, negativo o superior a 70.
-* **`Juntas Femeninas inválidas (debe ser número 0-70)`**: Valor no numérico, negativo o superior a 70.
-* **`Debe haber al menos una junta (M o F)`**: Se ingresaron 0 juntas masculinas y 0 juntas femeninas.
+* **`Rango de juntas inválido (Hasta debe ser >= Desde)`**: El número final del rango es menor al número inicial.
+* **`Debe haber al menos una junta (M o F)`**: No se definió ningún rango válido de juntas.
 
 ---
 

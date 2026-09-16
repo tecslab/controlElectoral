@@ -44,15 +44,29 @@ export default async function RecintoPage(props: { params: Params, searchParams:
     }
   }
 
-  const juntasM = (recinto.juntas ?? []).filter((j: { sexo: string; estado: string }) => j.sexo === 'M' && j.estado === 'Activo').length
-  const juntasF = (recinto.juntas ?? []).filter((j: { sexo: string; estado: string }) => j.sexo === 'F' && j.estado === 'Activo').length
+  const mJuntas = (recinto.juntas ?? [])
+    .filter((j: { sexo: string; estado: string; numero: number }) => j.sexo === 'M' && j.estado === 'Activo')
+    .map((j: { numero: number }) => j.numero)
+
+  const fJuntas = (recinto.juntas ?? [])
+    .filter((j: { sexo: string; estado: string; numero: number }) => j.sexo === 'F' && j.estado === 'Activo')
+    .map((j: { numero: number }) => j.numero)
+
+  const juntasMDesde = mJuntas.length > 0 ? Math.min(...mJuntas) : 0
+  const juntasMHasta = mJuntas.length > 0 ? Math.max(...mJuntas) : 0
+  const juntasFDesde = fJuntas.length > 0 ? Math.min(...fJuntas) : 0
+  const juntasFHasta = fJuntas.length > 0 ? Math.max(...fJuntas) : 0
 
   return (
     <RecintoDetail
       recinto={{
         ...recinto,
-        juntas_m: juntasM,
-        juntas_f: juntasF,
+        juntas_m: mJuntas.length,
+        juntas_f: fJuntas.length,
+        juntas_m_desde: juntasMDesde,
+        juntas_m_hasta: juntasMHasta,
+        juntas_f_desde: juntasFDesde,
+        juntas_f_hasta: juntasFHasta,
         parroquia_nombre: (recinto.parroquias as { nombre: string } | null)?.nombre ?? '—',
         zona_nombre: (recinto.zonas as { nombre: string; codigo?: string | null } | null)?.nombre ?? null,
         created_by_name: createdByName,

@@ -452,15 +452,27 @@ export type Database = {
     Functions: {
       create_recinto_with_juntas: {
         Args: {
-          p_id_parroquia: string
-          p_juntas_f: number
-          p_juntas_m: number
           p_nombre: string
+          p_id_parroquia: string
+          p_juntas_m_desde?: number
+          p_juntas_m_hasta?: number
+          p_juntas_f_desde?: number
+          p_juntas_f_hasta?: number
         }
         Returns: string
       }
       update_juntas_count: {
         Args: { p_id_recinto: string; p_new_f: number; p_new_m: number }
+        Returns: undefined
+      }
+      update_juntas_range: {
+        Args: {
+          p_id_recinto: string
+          p_m_desde?: number
+          p_m_hasta?: number
+          p_f_desde?: number
+          p_f_hasta?: number
+        }
         Returns: undefined
       }
     }
