@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import Toast from '@/components/ui/Toast'
 import Link from 'next/link'
 import AuditInfo from '@/components/ui/AuditInfo'
+import { ENABLE_ELECTORAL_STRUCTURE_EDITING } from '@/lib/features'
 import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 
 type Canton = {
@@ -26,7 +27,7 @@ export default function CantonDetail({ canton, initEditing = false }: { canton: 
   const router = useRouter()
   const supabase = createClient()
 
-  const [editing, setEditing] = useState(initEditing)
+  const [editing, setEditing] = useState<boolean>(initEditing && ENABLE_ELECTORAL_STRUCTURE_EDITING)
   const [nombre, setNombre] = useState(canton.nombre)
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' } | null>(null)
@@ -64,7 +65,7 @@ export default function CantonDetail({ canton, initEditing = false }: { canton: 
           </Link>
           <h1 className="page-title" style={{ marginTop: '0.25rem' }}>{canton.nombre}</h1>
         </div>
-        {!editing && (
+        {ENABLE_ELECTORAL_STRUCTURE_EDITING && !editing && (
           <button id="btn-editar-canton" className="btn btn-secondary" onClick={() => setEditing(true)}>
             ✏️ Editar
           </button>

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { ENABLE_ELECTORAL_STRUCTURE_CREATION, ENABLE_ELECTORAL_STRUCTURE_EDITING } from '@/lib/features'
 
 export const metadata = { title: 'Zonas — Control Electoral' }
 
@@ -22,9 +23,11 @@ export default async function ZonasPage() {
           <h1 className="page-title">Zonas Electorales</h1>
           <p className="page-subtitle">Subdivisión de parroquias para asignación de recintos</p>
         </div>
-        <Link href="/zonas/nueva" className="btn btn-primary">
-          ＋ Nueva Zona
-        </Link>
+        {ENABLE_ELECTORAL_STRUCTURE_CREATION && (
+          <Link href="/zonas/nueva" className="btn btn-primary">
+            ＋ Nueva Zona
+          </Link>
+        )}
       </div>
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -60,7 +63,7 @@ export default async function ZonasPage() {
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <Link href={`/zonas/${z.id}`} className="btn btn-secondary btn-sm">
-                      Ver / Editar
+                      {ENABLE_ELECTORAL_STRUCTURE_EDITING ? 'Ver / Editar' : 'Ver'}
                     </Link>
                   </td>
                 </tr>

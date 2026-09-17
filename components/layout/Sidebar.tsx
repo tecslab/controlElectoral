@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { ENABLE_ELECTORAL_STRUCTURE_CREATION } from '@/lib/features'
 
 type NavItem = {
   label: string
@@ -22,11 +23,13 @@ const mainNav: NavItem[] = [
 ]
 
 const ingresoNav: NavItem[] = [
-  { label: 'Cantón', href: '/cantones/nuevo', icon: '＋' },
-  { label: 'Circunscripción', href: '/circunscripciones/nueva', icon: '＋' },
-  { label: 'Parroquia', href: '/parroquias/nueva', icon: '＋' },
-  { label: 'Zona', href: '/zonas/nueva', icon: '＋' },
-  { label: 'Recinto', href: '/recintos/nuevo', icon: '＋' },
+  ...(ENABLE_ELECTORAL_STRUCTURE_CREATION ? [
+    { label: 'Cantón', href: '/cantones/nuevo', icon: '＋' },
+    { label: 'Circunscripción', href: '/circunscripciones/nueva', icon: '＋' },
+    { label: 'Parroquia', href: '/parroquias/nueva', icon: '＋' },
+    { label: 'Zona', href: '/zonas/nueva', icon: '＋' },
+    { label: 'Recinto', href: '/recintos/nuevo', icon: '＋' },
+  ] : []),
   { label: 'Colaborador', href: '/colaboradores/nuevo', icon: '＋' },
 ]
 

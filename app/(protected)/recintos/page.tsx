@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import RecintoFilters from './RecintoFilters'
+import { ENABLE_ELECTORAL_STRUCTURE_CREATION, ENABLE_ELECTORAL_STRUCTURE_EDITING } from '@/lib/features'
 
 export const metadata = { title: 'Recintos — Control Electoral' }
 
@@ -53,9 +54,11 @@ export default async function RecintosPage(props: { searchParams: SearchParams }
           <h1 className="page-title">Recintos</h1>
           <p className="page-subtitle">{recintos?.length ?? 0} recintos encontrados</p>
         </div>
-        <Link href="/recintos/nuevo" className="btn btn-primary" id="btn-nuevo-recinto">
-          ＋ Nuevo recinto
-        </Link>
+        {ENABLE_ELECTORAL_STRUCTURE_CREATION && (
+          <Link href="/recintos/nuevo" className="btn btn-primary" id="btn-nuevo-recinto">
+            ＋ Nuevo recinto
+          </Link>
+        )}
       </div>
 
       <RecintoFilters
@@ -111,7 +114,9 @@ export default async function RecintosPage(props: { searchParams: SearchParams }
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                       <Link href={`/recintos/${r.id}`} className="btn btn-secondary btn-xs">Ver</Link>
-                      <Link href={`/recintos/${r.id}?edit=true`} className="btn btn-ghost btn-xs">Editar</Link>
+                      {ENABLE_ELECTORAL_STRUCTURE_EDITING && (
+                        <Link href={`/recintos/${r.id}?edit=true`} className="btn btn-ghost btn-xs">Editar</Link>
+                      )}
                     </div>
                   </td>
                 </tr>

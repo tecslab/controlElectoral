@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import Toast from '@/components/ui/Toast'
 import Link from 'next/link'
 import AuditInfo from '@/components/ui/AuditInfo'
+import { ENABLE_ELECTORAL_STRUCTURE_EDITING } from '@/lib/features'
 import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 
 type Zona = {
@@ -38,7 +39,7 @@ export default function ZonaDetail({
   const router = useRouter()
   const supabase = createClient()
 
-  const [editing, setEditing] = useState(initEditing)
+  const [editing, setEditing] = useState<boolean>(initEditing && ENABLE_ELECTORAL_STRUCTURE_EDITING)
   const [nombre, setNombre] = useState(zona.nombre)
   const [codigo, setCodigo] = useState(zona.codigo ?? '')
   const [idParroquia, setIdParroquia] = useState(zona.id_parroquia)
@@ -78,7 +79,7 @@ export default function ZonaDetail({
           </Link>
           <h1 className="page-title" style={{ marginTop: '0.25rem' }}>{zona.nombre}</h1>
         </div>
-        {!editing && (
+        {ENABLE_ELECTORAL_STRUCTURE_EDITING && !editing && (
           <button id="btn-editar-zona" className="btn btn-secondary" onClick={() => setEditing(true)}>
             ✏️ Editar
           </button>

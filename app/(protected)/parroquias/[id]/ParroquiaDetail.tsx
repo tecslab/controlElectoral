@@ -7,6 +7,7 @@ import Toast from '@/components/ui/Toast'
 import Link from 'next/link'
 import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 import AuditInfo from '@/components/ui/AuditInfo'
+import { ENABLE_ELECTORAL_STRUCTURE_EDITING } from '@/lib/features'
 
 type Parroquia = {
   id: string
@@ -27,7 +28,7 @@ export default function ParroquiaDetail({ parroquia, initEditing = false }: { pa
   const router = useRouter()
   const supabase = createClient()
 
-  const [editing, setEditing] = useState(initEditing)
+  const [editing, setEditing] = useState<boolean>(initEditing && ENABLE_ELECTORAL_STRUCTURE_EDITING)
   const [nombre, setNombre] = useState(parroquia.nombre)
   const [tipo, setTipo] = useState<'Urbana' | 'Rural'>(parroquia.tipo as 'Urbana' | 'Rural')
   const [loading, setLoading] = useState(false)
@@ -66,7 +67,7 @@ export default function ParroquiaDetail({ parroquia, initEditing = false }: { pa
           </Link>
           <h1 className="page-title" style={{ marginTop: '0.25rem' }}>{parroquia.nombre}</h1>
         </div>
-        {!editing && (
+        {ENABLE_ELECTORAL_STRUCTURE_EDITING && !editing && (
           <button
             id="btn-editar-parroquia"
             className="btn btn-secondary"

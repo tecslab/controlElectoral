@@ -7,6 +7,7 @@ import Toast from '@/components/ui/Toast'
 import Link from 'next/link'
 import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 import AuditInfo from '@/components/ui/AuditInfo'
+import { ENABLE_ELECTORAL_STRUCTURE_EDITING } from '@/lib/features'
 
 type Recinto = {
   id: string
@@ -47,7 +48,7 @@ export default function RecintoDetail({
   const router = useRouter()
   const supabase = createClient()
 
-  const [editing, setEditing] = useState(initEditing)
+  const [editing, setEditing] = useState<boolean>(initEditing && ENABLE_ELECTORAL_STRUCTURE_EDITING)
   const [nombre, setNombre] = useState(recinto.nombre)
   const [idParroquia, setIdParroquia] = useState(recinto.id_parroquia)
   const [idZona, setIdZona] = useState(recinto.id_zona ?? '')
@@ -164,7 +165,7 @@ export default function RecintoDetail({
           </Link>
           <h1 className="page-title" style={{ marginTop: '0.25rem' }}>{recinto.nombre}</h1>
         </div>
-        {!editing && (
+        {ENABLE_ELECTORAL_STRUCTURE_EDITING && !editing && (
           <button id="btn-editar-recinto" className="btn btn-secondary" onClick={() => setEditing(true)}>
             ✏️ Editar
           </button>

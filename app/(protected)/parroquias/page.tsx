@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import ParroquiaFilters from './ParroquiaFilters'
+import { ENABLE_ELECTORAL_STRUCTURE_CREATION, ENABLE_ELECTORAL_STRUCTURE_EDITING } from '@/lib/features'
 
 export const metadata = {
   title: 'Parroquias — Control Electoral',
@@ -45,9 +46,11 @@ export default async function ParroquiasPage(props: { searchParams: SearchParams
           <h1 className="page-title">Parroquias</h1>
           <p className="page-subtitle">{parroquias?.length ?? 0} parroquias encontradas</p>
         </div>
-        <Link href="/parroquias/nueva" className="btn btn-primary" id="btn-nueva-parroquia">
-          ＋ Nueva parroquia
-        </Link>
+        {ENABLE_ELECTORAL_STRUCTURE_CREATION && (
+          <Link href="/parroquias/nueva" className="btn btn-primary" id="btn-nueva-parroquia">
+            ＋ Nueva parroquia
+          </Link>
+        )}
       </div>
 
       <ParroquiaFilters estadoFilter={estadoFilter} tipoFilter={tipoFilter} />
@@ -109,9 +112,11 @@ export default async function ParroquiasPage(props: { searchParams: SearchParams
                       <Link href={`/parroquias/${p.id}`} className="btn btn-secondary btn-xs">
                         Ver
                       </Link>
-                      <Link href={`/parroquias/${p.id}?edit=true`} className="btn btn-ghost btn-xs">
-                        Editar
-                      </Link>
+                      {ENABLE_ELECTORAL_STRUCTURE_EDITING && (
+                        <Link href={`/parroquias/${p.id}?edit=true`} className="btn btn-ghost btn-xs">
+                          Editar
+                        </Link>
+                      )}
                     </div>
                   </td>
                 </tr>
