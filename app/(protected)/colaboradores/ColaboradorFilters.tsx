@@ -55,7 +55,7 @@ export default function ColaboradorFilters({
           onChange={e => updateFilter('recinto', e.target.value)}
           id="filter-recinto-colaborador"
         >
-          <option value="">Todos los recintos</option>
+          <option value="">{filters.parroquia ? 'Todos los recintos de la parroquia' : 'Seleccione una parroquia primero'}</option>
           <option value="unassigned">No asignados</option>
           {recintos.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
         </select>

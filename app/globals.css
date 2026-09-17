@@ -342,6 +342,16 @@ textarea.input { resize: vertical; min-height: 80px; }
   border-top-color: var(--color-primary);
 }
 
+/* List loading skeleton */
+@keyframes skeleton-pulse {
+  50% { opacity: 0.45; }
+}
+.skeleton {
+  background: var(--color-surface-2);
+  border-radius: 4px;
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
 /* Pagination */
 .pagination {
   display: flex;

@@ -17,6 +17,7 @@ export default function ParroquiaFilters({
     (key: string, value: string) => {
       const params = new URLSearchParams(searchParams.toString())
       params.set(key, value)
+      params.delete('page')
       router.push(`/parroquias?${params.toString()}`)
     },
     [router, searchParams]

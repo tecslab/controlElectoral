@@ -8,12 +8,8 @@ export default async function ZonasPage() {
   const supabase = await createClient()
 
   const { data: zonas } = await supabase
-    .from('zonas')
-    .select(`
-      id, codigo, nombre, estado, id_parroquia, created_at,
-      parroquias ( nombre ),
-      recintos ( id )
-    `)
+    .from('zonas_list_summary')
+    .select('*')
     .order('nombre')
 
   return (
@@ -54,8 +50,8 @@ export default async function ZonasPage() {
                 <tr key={z.id}>
                   <td>{z.codigo || '—'}</td>
                   <td style={{ fontWeight: 600 }}>{z.nombre}</td>
-                  <td>{(z.parroquias as { nombre: string } | null)?.nombre ?? '—'}</td>
-                  <td>{z.recintos?.length ?? 0}</td>
+                  <td>{z.parroquia_nombre ?? '—'}</td>
+                  <td>{z.num_recintos}</td>
                   <td>
                     <span className={`badge ${z.estado === 'Activo' ? 'badge-green' : 'badge-red'}`}>
                       {z.estado}

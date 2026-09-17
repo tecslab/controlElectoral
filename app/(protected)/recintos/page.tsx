@@ -5,7 +5,8 @@ import { ENABLE_ELECTORAL_STRUCTURE_CREATION, ENABLE_ELECTORAL_STRUCTURE_EDITING
 
 export const metadata = { title: 'Recintos — Control Electoral' }
 
-type SearchParams = Promise<{ estado?: string; parroquia?: string; nombre?: string }>
+const PAGE_SIZE = 50
+type SearchParams = Promise<{ estado?: string; parroquia?: string; nombre?: string; page?: string }>
 
 export default async function RecintosPage(props: { searchParams: SearchParams }) {
   const searchParams = await props.searchParams
@@ -14,6 +15,8 @@ export default async function RecintosPage(props: { searchParams: SearchParams }
   const estadoFilter = searchParams.estado ?? 'Activo'
   const parroquiaFilter = searchParams.parroquia ?? ''
   const nombreFilter = searchParams.nombre ?? ''
+  const page = Math.max(1, Number(searchParams.page) || 1)
+  const from = (page - 1) * PAGE_SIZE
 
   // Load parroquias for filter dropdown
   const { data: parroquias } = await supabase
@@ -23,16 +26,8 @@ export default async function RecintosPage(props: { searchParams: SearchParams }
     .order('nombre')
 
   let query = supabase
-    .from('recintos')
-    .select(`
-      id, nombre, estado,
-      parroquias!recintos_id_parroquia_fkey ( nombre ),
-      juntas!juntas_id_recinto_fkey (
-        id,
-        estado,
-        asignacion_juntas!asignacion_juntas_id_junta_fkey ( id )
-      )
-    `)
+    .from('recintos_list_summary')
+    .select('*', { count: 'exact' })
     .order('nombre')
 
   if (estadoFilter && estadoFilter !== 'Todos') {
@@ -45,14 +40,23 @@ export default async function RecintosPage(props: { searchParams: SearchParams }
     query = query.ilike('nombre', `%${nombreFilter}%`)
   }
 
-  const { data: recintos, error } = await query
+  const { data: recintos, error, count } = await query.range(from, from + PAGE_SIZE - 1)
+  const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE))
+  const pageHref = (nextPage: number) => {
+    const params = new URLSearchParams()
+    if (estadoFilter !== 'Activo') params.set('estado', estadoFilter)
+    if (parroquiaFilter) params.set('parroquia', parroquiaFilter)
+    if (nombreFilter) params.set('nombre', nombreFilter)
+    params.set('page', String(nextPage))
+    return `/recintos?${params}`
+  }
 
   return (
     <div>
       <div className="page-header">
         <div>
           <h1 className="page-title">Recintos</h1>
-          <p className="page-subtitle">{recintos?.length ?? 0} recintos encontrados</p>
+          <p className="page-subtitle">{count ?? 0} recintos encontrados</p>
         </div>
         {ENABLE_ELECTORAL_STRUCTURE_CREATION && (
           <Link href="/recintos/nuevo" className="btn btn-primary" id="btn-nuevo-recinto">
@@ -97,15 +101,12 @@ export default async function RecintosPage(props: { searchParams: SearchParams }
                 </td>
               </tr>
             ) : recintos.map(r => {
-              const juntasActivas = (r.juntas ?? []).filter((j: { estado: string }) => j.estado === 'Activo').length
-              const juntasNoAsignadas = (r.juntas ?? []).filter((j: any) => !j.asignacion_juntas || j.asignacion_juntas.length === 0).length
-              const parroquiaNombre = (r.parroquias as { nombre: string } | null)?.nombre ?? '—'
               return (
                 <tr key={r.id}>
                   <td style={{ fontWeight: 500 }}>{r.nombre}</td>
-                  <td style={{ color: 'var(--color-text-muted)' }}>{parroquiaNombre}</td>
-                  <td>{juntasActivas}</td>
-                  <td>{juntasNoAsignadas}</td>
+                  <td style={{ color: 'var(--color-text-muted)' }}>{r.parroquia_nombre ?? '—'}</td>
+                  <td>{r.juntas_activas}</td>
+                  <td>{r.juntas_no_asignadas}</td>
                   <td>
                     <span className={`badge ${r.estado === 'Activo' ? 'badge-green' : 'badge-red'}`}>
                       {r.estado}
@@ -125,6 +126,13 @@ export default async function RecintosPage(props: { searchParams: SearchParams }
           </tbody>
         </table>
       </div>
+      {totalPages > 1 && (
+        <div className="pagination">
+          <span>Página {page} de {totalPages}</span>
+          {page > 1 && <Link href={pageHref(page - 1)} className="btn btn-secondary btn-xs">← Anterior</Link>}
+          {page < totalPages && <Link href={pageHref(page + 1)} className="btn btn-secondary btn-xs">Siguiente →</Link>}
+        </div>
+      )}
     </div>
   )
 }

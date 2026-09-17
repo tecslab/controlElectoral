@@ -27,7 +27,9 @@ export default async function ColaboradoresPage(props: { searchParams: SearchPar
   // Load filter data
   const [{ data: parroquias }, { data: recintos }] = await Promise.all([
     supabase.from('parroquias').select('id, nombre').eq('estado', 'Activo').order('nombre'),
-    supabase.from('recintos').select('id, nombre').eq('estado', 'Activo').order('nombre'),
+    searchParams.parroquia
+      ? supabase.from('recintos').select('id, nombre').eq('estado', 'Activo').eq('id_parroquia', searchParams.parroquia).order('nombre')
+      : Promise.resolve({ data: [] as { id: string; nombre: string }[] }),
   ])
 
   let query = supabase

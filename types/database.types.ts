@@ -454,6 +454,18 @@ export type Database = {
         }
         Relationships: []
       }
+      parroquias_list_summary: {
+        Row: { canton_nombre: string | null; estado: string; id: string; id_canton: string | null; juntas_no_asignadas: number; nombre: string; num_juntas: number; num_recintos: number; tipo: string }
+        Relationships: []
+      }
+      recintos_list_summary: {
+        Row: { estado: string; id: string; id_parroquia: string; juntas_activas: number; juntas_no_asignadas: number; nombre: string; parroquia_nombre: string | null }
+        Relationships: []
+      }
+      zonas_list_summary: {
+        Row: { codigo: string | null; estado: string; id: string; id_parroquia: string; nombre: string; num_recintos: number; parroquia_nombre: string | null }
+        Relationships: []
+      }
     }
     Functions: {
       create_recinto_with_juntas: {
