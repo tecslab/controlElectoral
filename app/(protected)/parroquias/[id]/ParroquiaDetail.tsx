@@ -14,6 +14,7 @@ type Parroquia = {
   nombre: string
   tipo: string
   estado: string
+  canton_nombre?: string | null
   num_recintos: number
   num_juntas: number
   created_at?: string
@@ -124,6 +125,12 @@ export default function ParroquiaDetail({ parroquia, initEditing = false }: { pa
                 {parroquia.tipo}
               </span>
             )}
+          </div>
+
+          {/* Cantón */}
+          <div>
+            <div className="label">Cantón</div>
+            <div style={{ color: 'var(--color-text-muted)' }}>{parroquia.canton_nombre ?? '—'}</div>
           </div>
 
           {/* Stats */}

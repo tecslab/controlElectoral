@@ -14,6 +14,7 @@ export default async function ParroquiaPage(props: { params: Params, searchParam
     .from('parroquias')
     .select(`
       id, nombre, tipo, estado, created_at, created_by, updated_at, updated_by,
+      cantones!parroquias_id_canton_fkey ( nombre ),
       recintos!recintos_id_parroquia_fkey (
         id, nombre, estado,
         juntas!juntas_id_recinto_fkey ( id )
@@ -53,6 +54,7 @@ export default async function ParroquiaPage(props: { params: Params, searchParam
         ...parroquia,
         num_recintos: numRecintos,
         num_juntas: numJuntas,
+        canton_nombre: (parroquia.cantones as { nombre: string } | null)?.nombre ?? null,
         created_by_name: createdByName,
         updated_by_name: updatedByName,
       }}

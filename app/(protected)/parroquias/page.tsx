@@ -20,6 +20,7 @@ export default async function ParroquiasPage(props: { searchParams: SearchParams
     .from('parroquias')
     .select(`
       id, nombre, tipo, estado,
+      cantones!parroquias_id_canton_fkey ( nombre ),
       recintos!recintos_id_parroquia_fkey (
         id,
         juntas!juntas_id_recinto_fkey (
@@ -66,6 +67,7 @@ export default async function ParroquiasPage(props: { searchParams: SearchParams
           <thead>
             <tr>
               <th>Nombre</th>
+              <th>Cantón</th>
               <th>Tipo</th>
               <th># Recintos</th>
               <th># Juntas</th>
@@ -77,7 +79,7 @@ export default async function ParroquiasPage(props: { searchParams: SearchParams
           <tbody>
             {(!parroquias || parroquias.length === 0) ? (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={8}>
                   <div className="empty-state">
                     <div className="empty-state-icon">🏘️</div>
                     <div>No se encontraron parroquias</div>
@@ -94,6 +96,9 @@ export default async function ParroquiasPage(props: { searchParams: SearchParams
               return (
                 <tr key={p.id}>
                   <td style={{ fontWeight: 500 }}>{p.nombre}</td>
+                  <td style={{ color: 'var(--color-text-muted)' }}>
+                    {(p.cantones as { nombre: string } | null)?.nombre ?? '—'}
+                  </td>
                   <td>
                     <span className={`badge ${p.tipo === 'Urbana' ? 'badge-blue' : 'badge-green'}`}>
                       {p.tipo}
