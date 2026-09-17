@@ -18,7 +18,7 @@ export default async function ColaboradorPage(props: { params: Params, searchPar
     supabase
       .from('colaboradores')
       .select(`
-        id, apellidos, nombres, whatsapp, ya_contactado, rol,
+        id, apellidos, nombres, whatsapp, email, cedula, ya_contactado, rol,
         id_recinto_votacion, id_recinto_asignado, asiste_capacitacion,
         created_at, created_by, updated_at, updated_by,
         asignacion_juntas!asignacion_juntas_id_colaborador_fkey (
@@ -70,6 +70,8 @@ export type ColaboradorRaw = {
   apellidos: string
   nombres: string
   whatsapp: string
+  email: string | null
+  cedula: string | null
   ya_contactado: string
   rol: string
   id_recinto_votacion: string | null

@@ -37,6 +37,8 @@ export default function ColaboradorDetail({
     apellidos: colaborador.apellidos,
     nombres: colaborador.nombres,
     whatsapp: colaborador.whatsapp,
+    email: colaborador.email ?? '',
+    cedula: colaborador.cedula ?? '',
     ya_contactado: colaborador.ya_contactado,
     rol: colaborador.rol as 'MJRV' | 'Coordinador',
     id_recinto: colaborador.id_recinto_asignado ?? '',
@@ -118,6 +120,8 @@ export default function ColaboradorDetail({
     if (!form.apellidos.trim()) errs.apellidos = 'Los apellidos son obligatorios'
     if (!form.nombres.trim()) errs.nombres = 'Los nombres son obligatorios'
     if (!/^\d{10}$/.test(form.whatsapp)) errs.whatsapp = 'Ingrese exactamente 10 dígitos numéricos'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errs.email = 'Ingrese un correo electrónico válido'
+    if (!/^\d{10}$/.test(form.cedula)) errs.cedula = 'Ingrese exactamente 10 dígitos para la cédula'
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -136,6 +140,8 @@ export default function ColaboradorDetail({
         apellidos: form.apellidos.trim(),
         nombres: form.nombres.trim(),
         whatsapp: form.whatsapp,
+        email: form.email.trim().toLowerCase(),
+        cedula: form.cedula,
         ya_contactado: form.ya_contactado,
         rol: form.rol,
         id_recinto_votacion: recintoId,
@@ -265,6 +271,20 @@ export default function ColaboradorDetail({
               ? <input id="edit-whatsapp" type="text" className={`input ${errors.whatsapp ? 'input-error' : ''}`} value={form.whatsapp} onChange={e => setField('whatsapp', e.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric" />
               : <span style={{ fontFamily: 'monospace' }}>{colaborador.whatsapp}</span>}
             {errors.whatsapp && <span className="error-text">{errors.whatsapp}</span>}
+          </Field>
+
+          <Field label="Correo electrónico" editing={editing}>
+            {editing
+              ? <input id="edit-email" type="email" className={`input ${errors.email ? 'input-error' : ''}`} value={form.email} onChange={e => setField('email', e.target.value)} />
+              : (colaborador.email ?? '—')}
+            {errors.email && <span className="error-text">{errors.email}</span>}
+          </Field>
+
+          <Field label="Cédula" editing={editing}>
+            {editing
+              ? <input id="edit-cedula" type="text" className={`input ${errors.cedula ? 'input-error' : ''}`} value={form.cedula} onChange={e => setField('cedula', e.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric" />
+              : (colaborador.cedula ?? '—')}
+            {errors.cedula && <span className="error-text">{errors.cedula}</span>}
           </Field>
 
           <Field label="Rol" editing={editing}>
@@ -464,10 +484,12 @@ export default function ColaboradorDetail({
                 onClick={() => {
                   setEditing(false)
                   setForm({
-                    apellidos: colaborador.apellidos,
-                    nombres: colaborador.nombres,
-                    whatsapp: colaborador.whatsapp,
-                    ya_contactado: colaborador.ya_contactado,
+                  apellidos: colaborador.apellidos,
+                  nombres: colaborador.nombres,
+                  whatsapp: colaborador.whatsapp,
+                  email: colaborador.email ?? '',
+                  cedula: colaborador.cedula ?? '',
+                  ya_contactado: colaborador.ya_contactado,
                     rol: colaborador.rol as 'MJRV' | 'Coordinador',
                     id_recinto: colaborador.id_recinto_asignado ?? '',
                     asiste_capacitacion: colaborador.asiste_capacitacion,

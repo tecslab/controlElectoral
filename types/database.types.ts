@@ -64,8 +64,10 @@ export type Database = {
         Row: {
           apellidos: string
           asiste_capacitacion: string
+          cedula: string | null
           created_at: string
           created_by: string | null
+          email: string | null
           id: string
           id_recinto_asignado: string | null
           id_recinto_votacion: string | null
@@ -79,8 +81,10 @@ export type Database = {
         Insert: {
           apellidos: string
           asiste_capacitacion?: string
+          cedula?: string | null
           created_at?: string
           created_by?: string | null
+          email?: string | null
           id?: string
           id_recinto_asignado?: string | null
           id_recinto_votacion?: string | null
@@ -94,8 +98,10 @@ export type Database = {
         Update: {
           apellidos?: string
           asiste_capacitacion?: string
+          cedula?: string | null
           created_at?: string
           created_by?: string | null
+          email?: string | null
           id?: string
           id_recinto_asignado?: string | null
           id_recinto_votacion?: string | null

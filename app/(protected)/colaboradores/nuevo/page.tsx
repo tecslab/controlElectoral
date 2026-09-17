@@ -22,6 +22,8 @@ export default function NuevoColaboradorPage() {
     apellidos: '',
     nombres: '',
     whatsapp: '',
+    email: '',
+    cedula: '',
     rol: 'MJRV' as 'MJRV' | 'Coordinador',
     id_recinto: '',
   })
@@ -97,6 +99,8 @@ export default function NuevoColaboradorPage() {
     if (!form.apellidos.trim()) errs.apellidos = 'Los apellidos son obligatorios'
     if (!form.nombres.trim()) errs.nombres = 'Los nombres son obligatorios'
     if (!/^\d{10}$/.test(form.whatsapp)) errs.whatsapp = 'Ingrese exactamente 10 dígitos numéricos'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errs.email = 'Ingrese un correo electrónico válido'
+    if (!/^\d{10}$/.test(form.cedula)) errs.cedula = 'Ingrese exactamente 10 dígitos para la cédula'
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -117,6 +121,8 @@ export default function NuevoColaboradorPage() {
         apellidos: form.apellidos.trim(),
         nombres: form.nombres.trim(),
         whatsapp: form.whatsapp.trim(),
+        email: form.email.trim().toLowerCase(),
+        cedula: form.cedula,
         rol: form.rol,
         id_recinto_votacion: recintoId,
         id_recinto_asignado: recintoId,
@@ -457,6 +463,33 @@ export default function NuevoColaboradorPage() {
                 inputMode="numeric"
               />
               {errors.whatsapp && <span className="error-text">{errors.whatsapp}</span>}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="email" className="label">Correo electrónico *</label>
+              <input
+                id="email"
+                type="email"
+                className={`input ${errors.email ? 'input-error' : ''}`}
+                value={form.email}
+                onChange={e => setField('email', e.target.value)}
+                placeholder="nombre@ejemplo.com"
+              />
+              {errors.email && <span className="error-text">{errors.email}</span>}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="cedula" className="label">Cédula * (10 dígitos)</label>
+              <input
+                id="cedula"
+                type="text"
+                className={`input ${errors.cedula ? 'input-error' : ''}`}
+                value={form.cedula}
+                onChange={e => setField('cedula', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="0101234567"
+                inputMode="numeric"
+              />
+              {errors.cedula && <span className="error-text">{errors.cedula}</span>}
             </div>
 
             <div className="form-group">
