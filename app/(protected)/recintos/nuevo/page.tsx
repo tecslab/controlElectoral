@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import Papa from 'papaparse'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -12,10 +12,13 @@ type Zona = { id: string; nombre: string; codigo?: string | null; id_parroquia: 
 
 export default function NuevoRecintoPage() {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   const [nombre, setNombre] = useState('')
-  const [idParroquia, setIdParroquia] = useState('')
+  const [idParroquia, setIdParroquia] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    return localStorage.getItem('lastRecintoParroquia') ?? ''
+  })
   const [idZona, setIdZona] = useState('')
 
   const [juntasMDesde, setJuntasMDesde] = useState('')
@@ -24,7 +27,6 @@ export default function NuevoRecintoPage() {
   const [juntasFHasta, setJuntasFHasta] = useState('')
 
   const [parroquias, setParroquias] = useState<Parroquia[]>([])
-  const [zonas, setZonas] = useState<Zona[]>([])
   const [filteredZonas, setFilteredZonas] = useState<Zona[]>([])
 
   const [loading, setLoading] = useState(false)
@@ -38,29 +40,14 @@ export default function NuevoRecintoPage() {
   useEnterSubmit('#btn-ingresar-recinto')
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const lastParroquia = localStorage.getItem('lastRecintoParroquia')
-      if (lastParroquia) setIdParroquia(lastParroquia)
-    }
-
     supabase.from('parroquias').select('id, nombre').neq('estado', 'Inactivo').order('nombre')
       .then(({ data }) => setParroquias(data ?? []))
-    supabase.from('zonas').select('id, nombre, codigo, id_parroquia').neq('estado', 'Inactivo').order('nombre')
-      .then(({ data }) => setZonas((data as Zona[]) ?? []))
-  }, [])
+  }, [supabase])
 
   useEffect(() => {
-    if (!idParroquia) {
-      setFilteredZonas([])
-      setIdZona('')
-      return
-    }
+    if (!idParroquia) return
 
-    // First filter from cached state
-    const filtered = zonas.filter(z => z.id_parroquia === idParroquia)
-    setFilteredZonas(filtered)
-
-    // Also fetch directly from Supabase for this specific parroquia
+    let cancelled = false
     supabase
       .from('zonas')
       .select('id, nombre, codigo, id_parroquia')
@@ -70,13 +57,20 @@ export default function NuevoRecintoPage() {
       .then(({ data, error }) => {
         if (error) {
           console.error('Error fetching zonas:', error)
-        } else if (data && data.length > 0) {
+        } else if (!cancelled) {
           setFilteredZonas(data as Zona[])
         }
       })
 
+    return () => { cancelled = true }
+  }, [idParroquia, supabase])
+
+  function handleParroquiaChange(value: string) {
+    setIdParroquia(value)
     setIdZona('')
-  }, [idParroquia, zonas])
+    setFilteredZonas([])
+    localStorage.setItem('lastRecintoParroquia', value)
+  }
 
   const mDesde = parseInt(juntasMDesde) || 0
   const mHasta = parseInt(juntasMHasta) || 0
@@ -115,23 +109,20 @@ export default function NuevoRecintoPage() {
     if (!validate()) return
 
     setLoading(true)
-    const { data: recintoId, error } = await supabase.rpc('create_recinto_with_juntas', {
+    const { error } = await supabase.rpc('create_recinto_with_juntas', {
       p_nombre: nombre.trim(),
       p_id_parroquia: idParroquia,
       p_juntas_m_desde: mDesde,
       p_juntas_m_hasta: mHasta,
       p_juntas_f_desde: fDesde,
       p_juntas_f_hasta: fHasta,
+      p_id_zona: idZona || null,
     })
 
     if (error) {
       setLoading(false)
       setToast({ message: `Error al crear recinto: ${error.message}`, type: 'error' })
       return
-    }
-
-    if (idZona && recintoId) {
-      await supabase.from('recintos').update({ id_zona: idZona }).eq('id', recintoId)
     }
 
     setToast({ message: 'Recinto creado exitosamente', type: 'success' })
@@ -153,10 +144,33 @@ export default function NuevoRecintoPage() {
           rowsToProcess = rowsToProcess.slice(1)
         }
 
-        const validCols: any[] = []
-        const rejected: any[] = []
+        const validCols: { nombre: string; idParroquia: string; idZona: string | null; mD: number; mH: number; fD: number; fH: number }[] = []
+        const rejected: { row: string[]; error: string }[] = []
 
         const validParroquiaIds = new Set(parroquias.map(p => p.id))
+        const requestedZonaIds = new Set(
+          rowsToProcess
+            .filter(row => row.length >= 7)
+            .map(row => row[2]?.trim())
+            .filter((id): id is string => Boolean(id)),
+        )
+        const zonasById = new Map<string, Zona>()
+
+        if (requestedZonaIds.size > 0) {
+          const { data: zonasImport, error: zonasError } = await supabase
+            .from('zonas')
+            .select('id, nombre, codigo, id_parroquia')
+            .in('id', [...requestedZonaIds])
+            .neq('estado', 'Inactivo')
+
+          if (zonasError) {
+            setLoading(false)
+            setToast({ message: `Error verificando zonas: ${zonasError.message}`, type: 'error' })
+            return
+          }
+
+          for (const zona of (zonasImport as Zona[] ?? [])) zonasById.set(zona.id, zona)
+        }
 
         for (let i = 0; i < rowsToProcess.length; i++) {
           const row = rowsToProcess[i].map(c => c?.trim() || '')
@@ -172,18 +186,41 @@ export default function NuevoRecintoPage() {
             rejectReason = rejectReason || 'ID Parroquia no presente o inválido'
           }
 
+          const usesZonaColumn = row.length >= 7
+          const idZona = usesZonaColumn ? (row[2]?.trim() || null) : null
+          if (idZona) {
+            const zona = zonasById.get(idZona)
+            if (!zona) {
+              rejectReason = rejectReason || 'ID Zona no presente, inactivo o inválido'
+            } else if (zona.id_parroquia !== idParroquia) {
+              rejectReason = rejectReason || 'La zona no pertenece a la parroquia indicada'
+            }
+          }
+
           let mD = 0, mH = 0, fD = 0, fH = 0
 
           if (row.length >= 6) {
-            // New Range Format: nombre, id_parroquia, m_desde, m_hasta, f_desde, f_hasta
-            mD = parseInt(row[2], 10) || 0
-            mH = parseInt(row[3], 10) || 0
-            fD = parseInt(row[4], 10) || 0
-            fH = parseInt(row[5], 10) || 0
-
-            if ((mD > 0 && mH < mD) || (fD > 0 && fH < fD)) {
-              rejectReason = rejectReason || 'Rango de juntas inválido (Hasta debe ser >= Desde)'
+            // Range formats: legacy (6 columns) or with optional id_zona (7 columns).
+            const offset = usesZonaColumn ? 3 : 2
+            const parseRange = (desde: string, hasta: string, label: string): [number, number] | null => {
+              if (!desde && !hasta) return [0, 0]
+              if (!desde || !hasta || !/^\d+$/.test(desde) || !/^\d+$/.test(hasta)) {
+                rejectReason = rejectReason || `Rango de juntas ${label} incompleto o inválido`
+                return null
+              }
+              const inicio = Number(desde)
+              const fin = Number(hasta)
+              if (inicio < 1 || fin < inicio) {
+                rejectReason = rejectReason || `Rango de juntas ${label} inválido (Hasta debe ser >= Desde)`
+                return null
+              }
+              return [inicio, fin]
             }
+
+            const rangoM = parseRange(row[offset] || '', row[offset + 1] || '', 'M')
+            const rangoF = parseRange(row[offset + 2] || '', row[offset + 3] || '', 'F')
+            if (rangoM) [mD, mH] = rangoM
+            if (rangoF) [fD, fH] = rangoF
           } else {
             // Legacy Quantity Format: nombre, id_parroquia, juntas_m, juntas_f
             const mCount = parseInt(row[2], 10) || 0
@@ -203,7 +240,7 @@ export default function NuevoRecintoPage() {
           if (rejectReason) {
             rejected.push({ row, error: rejectReason })
           } else {
-            validCols.push({ nombre, idParroquia, mD, mH, fD, fH })
+            validCols.push({ nombre, idParroquia, idZona, mD, mH, fD, fH })
           }
         }
 
@@ -217,10 +254,11 @@ export default function NuevoRecintoPage() {
               p_juntas_m_hasta: col.mH,
               p_juntas_f_desde: col.fD,
               p_juntas_f_hasta: col.fH,
+              p_id_zona: col.idZona,
             })
             if (error) {
                rejected.push({
-                 row: [col.nombre, col.idParroquia, String(col.mD), String(col.mH), String(col.fD), String(col.fH)],
+                 row: [col.nombre, col.idParroquia, col.idZona ?? '', String(col.mD), String(col.mH), String(col.fD), String(col.fH)],
                  error: `Error BD: ${error.message}`
                })
             } else {
@@ -245,7 +283,7 @@ export default function NuevoRecintoPage() {
 
   const handleDownloadRechazados = () => {
     const csvData = rechazados.map(r => [...r.row, r.error])
-    const csvHeader = ['Nombre', 'Parroquia', 'M Desde', 'M Hasta', 'F Desde', 'F Hasta', 'Error']
+    const csvHeader = ['Nombre', 'Parroquia', 'Zona', 'M Desde', 'M Hasta', 'F Desde', 'F Hasta', 'Error']
     const csv = Papa.unparse([csvHeader, ...csvData])
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
@@ -329,13 +367,9 @@ export default function NuevoRecintoPage() {
               <label htmlFor="parroquia-recinto" className="label">Parroquia *</label>
               <select
                 id="parroquia-recinto"
-                className={`input ${errors.parroquia ? 'input-error' : ''}`}
-                value={idParroquia}
-                onChange={e => {
-                  const val = e.target.value
-                  setIdParroquia(val)
-                  localStorage.setItem('lastRecintoParroquia', val)
-                }}
+              className={`input ${errors.parroquia ? 'input-error' : ''}`}
+              value={idParroquia}
+              onChange={e => handleParroquiaChange(e.target.value)}
               >
                 <option value="">Seleccione una parroquia</option>
                 {parroquias.map(p => (

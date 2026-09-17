@@ -458,6 +458,7 @@ export type Database = {
           p_juntas_m_hasta?: number
           p_juntas_f_desde?: number
           p_juntas_f_hasta?: number
+          p_id_zona?: string | null
         }
         Returns: string
       }
