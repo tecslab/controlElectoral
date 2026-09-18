@@ -220,18 +220,26 @@ export default function NuevoColaboradorPage() {
         for (let i = 0; i < rowsToProcess.length; i++) {
           const row = rowsToProcess[i].map(c => c?.trim() || '')
           // CSV columns: Apellidos, Nombres, Whatsapp, ya_contactado, rol, recinto, asiste_capacitacion,
-          //              junta_numero (opt), junta_sexo (opt), desde (opt), hasta (opt)
+          //              junta_numero (opt), junta_sexo (opt), desde (opt), hasta (opt), email, cedula
           const [
             apellidos = '', nombres = '', whatsapp = '', yaContactadoRaw = '', rolRaw = '',
             recintoRaw = '', asisteRaw = '', juntaNumeroRaw = '', juntaSexoRaw = '',
-            desdeRaw = '', hastaRaw = ''
+            desdeRaw = '', hastaRaw = '', emailRaw = '', cedulaRaw = ''
           ] = row
 
           let rejectReason = ''
           if (!nombres) rejectReason = 'Falta Nombres'
           const whatsappClean = whatsapp.replace(/\D/g, '')
           if (!whatsappClean || whatsappClean.length !== 10) {
-            rejectReason = 'WhatsApp es obligatorio y debe tener exactamente 10 dígitos numéricos'
+            rejectReason = rejectReason || 'WhatsApp es obligatorio y debe tener exactamente 10 dígitos numéricos'
+          }
+          const email = emailRaw.toLowerCase()
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            rejectReason = rejectReason || 'Correo electrónico inválido'
+          }
+          const cedula = cedulaRaw.replace(/\D/g, '')
+          if (!/^\d{10}$/.test(cedula)) {
+            rejectReason = rejectReason || 'Cédula debe tener exactamente 10 dígitos numéricos'
           }
 
           const recintoId = recintoRaw && validRecintosIds.has(recintoRaw) ? recintoRaw : null
@@ -283,6 +291,8 @@ export default function NuevoColaboradorPage() {
               apellidos,
               nombres,
               whatsapp: whatsappClean,
+              email,
+              cedula,
               ya_contactado,
               rol,
               id_recinto_votacion: recintoId,
@@ -298,6 +308,8 @@ export default function NuevoColaboradorPage() {
             apellidos: c.apellidos,
             nombres: c.nombres,
             whatsapp: c.whatsapp,
+            email: c.email,
+            cedula: c.cedula,
             ya_contactado: c.ya_contactado,
             rol: c.rol,
             id_recinto_votacion: c.id_recinto_votacion,
@@ -349,7 +361,7 @@ export default function NuevoColaboradorPage() {
 
   const handleDownloadRechazados = () => {
     const csvData = rechazados.map(r => [...r.row, r.error])
-    const csvHeader = ['Apellidos', 'Nombres', 'Whatsapp', 'ya_contactado', 'rol', 'recinto', 'asiste_capacitacion', 'junta_numero', 'junta_sexo', 'desde', 'hasta', 'Error']
+    const csvHeader = ['Apellidos', 'Nombres', 'Whatsapp', 'ya_contactado', 'rol', 'recinto', 'asiste_capacitacion', 'junta_numero', 'junta_sexo', 'desde', 'hasta', 'email', 'cedula', 'Error']
     const csv = Papa.unparse([csvHeader, ...csvData])
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
