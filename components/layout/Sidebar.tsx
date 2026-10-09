@@ -1,198 +1,167 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { MouseEvent } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import {
+  BarChart3, Building2, ChevronRight, CirclePlus, DoorOpen,
+  Home, LogOut, Map, MapPin, Menu, MoreHorizontal, Users, X,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { ENABLE_ELECTORAL_STRUCTURE_CREATION } from '@/lib/features'
 
-type NavItem = {
-  label: string
-  href: string
-  icon: string
-}
+type NavItem = { label: string; href: string; icon: LucideIcon }
 
-const mainNav: NavItem[] = [
-  { label: 'Cantones', href: '/cantones', icon: '🌆' },
-  { label: 'Circunscripciones', href: '/circunscripciones', icon: '🗺️' },
-  { label: 'Parroquias', href: '/parroquias', icon: '🏘️' },
-  { label: 'Zonas', href: '/zonas', icon: '📍' },
-  { label: 'Recintos', href: '/recintos', icon: '🏫' },
-  { label: 'Colaboradores', href: '/colaboradores', icon: '👥' },
-  { label: 'Dashboard', href: '/dashboard', icon: '📊' },
+const sections: NavItem[] = [
+  { label: 'Dashboard', href: '/dashboard', icon: BarChart3 },
+  { label: 'Cantones', href: '/cantones', icon: Building2 },
+  { label: 'Circunscripciones', href: '/circunscripciones', icon: Map },
+  { label: 'Parroquias', href: '/parroquias', icon: Home },
+  { label: 'Zonas', href: '/zonas', icon: MapPin },
+  { label: 'Recintos', href: '/recintos', icon: DoorOpen },
+  { label: 'Colaboradores', href: '/colaboradores', icon: Users },
 ]
 
-const ingresoNav: NavItem[] = [
+const createItems: NavItem[] = [
   ...(ENABLE_ELECTORAL_STRUCTURE_CREATION ? [
-    { label: 'Cantón', href: '/cantones/nuevo', icon: '＋' },
-    { label: 'Circunscripción', href: '/circunscripciones/nueva', icon: '＋' },
-    { label: 'Parroquia', href: '/parroquias/nueva', icon: '＋' },
-    { label: 'Zona', href: '/zonas/nueva', icon: '＋' },
-    { label: 'Recinto', href: '/recintos/nuevo', icon: '＋' },
+    { label: 'Nuevo cantón', href: '/cantones/nuevo', icon: CirclePlus },
+    { label: 'Nueva circunscripción', href: '/circunscripciones/nueva', icon: CirclePlus },
+    { label: 'Nueva parroquia', href: '/parroquias/nueva', icon: CirclePlus },
+    { label: 'Nueva zona', href: '/zonas/nueva', icon: CirclePlus },
+    { label: 'Nuevo recinto', href: '/recintos/nuevo', icon: CirclePlus },
   ] : []),
-  { label: 'Colaborador', href: '/colaboradores/nuevo', icon: '＋' },
+  { label: 'Nuevo colaborador', href: '/colaboradores/nuevo', icon: CirclePlus },
 ]
+
+const quickNav = [
+  { label: 'Inicio', href: '/dashboard', icon: Home },
+  { label: 'Recintos', href: '/recintos', icon: DoorOpen },
+  { label: 'Equipo', href: '/colaboradores', icon: Users },
+]
+
+function isActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
 
 export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClient()
-  const [ingresoOpen, setIngresoOpen] = useState(true)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const drawerRef = useRef<HTMLDivElement>(null)
+  const menuTriggerRef = useRef<HTMLButtonElement>(null)
+
+  function openMenu(event: MouseEvent<HTMLButtonElement>) {
+    menuTriggerRef.current = event.currentTarget
+    setMenuOpen(true)
+  }
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const menuTrigger = menuTriggerRef.current
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    closeButtonRef.current?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false)
+      if (event.key === 'Tab') {
+        const focusable = drawerRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])')
+        if (!focusable?.length) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first.focus()
+        }
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', onKeyDown)
+      menuTrigger?.focus()
+    }
+  }, [menuOpen])
 
   async function handleLogout() {
     setLoggingOut(true)
-    await supabase.auth.signOut()
+    await createClient().auth.signOut()
     router.push('/login')
   }
 
-  const isActive = (href: string) =>
-    pathname === href || (href !== '/' && pathname.startsWith(href + '/'))
+  const otherSectionActive = sections.some(
+    item => !quickNav.some(quick => quick.href === item.href) && isActive(pathname, item.href),
+  )
 
   return (
-    <aside style={{
-      width: 'var(--sidebar-width)',
-      minHeight: '100vh',
-      background: 'var(--color-surface)',
-      borderRight: '1px solid var(--color-border)',
-      display: 'flex',
-      flexDirection: 'column',
-      position: 'fixed',
-      left: 0,
-      top: 0,
-      bottom: 0,
-      zIndex: 50,
-    }}>
-      {/* Logo */}
-      <div style={{
-        padding: '1.25rem 1.25rem',
-        borderBottom: '1px solid var(--color-border)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-      }}>
-        <div style={{
-          width: '36px', height: '36px',
-          background: 'var(--color-primary)',
-          borderRadius: '10px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '1.1rem', flexShrink: 0,
-        }}>🗳️</div>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text)' }}>
-            Control Electoral
-          </div>
-          <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
-            Sistema logístico
-          </div>
-        </div>
-      </div>
-
-      {/* Nav */}
-      <nav style={{ flex: 1, padding: '0.75rem 0.75rem', overflowY: 'auto' }}>
-
-        {/* Ingresar section */}
-        <div style={{ marginBottom: '0.5rem' }}>
-          <button
-            onClick={() => setIngresoOpen(o => !o)}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.5rem 0.75rem',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--color-text-muted)',
-              fontSize: '0.7rem',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              borderRadius: '6px',
-            }}
-          >
-            <span>Ingresar información</span>
-            <span style={{ transition: 'transform 0.2s', transform: ingresoOpen ? 'rotate(180deg)' : 'none' }}>▾</span>
+    <>
+      <aside className="desktop-rail" aria-label="Navegación principal">
+        <Link href="/dashboard" className="rail-brand" aria-label="Control Electoral, ir al dashboard">🗳️</Link>
+        <nav className="rail-links" aria-label="Accesos rápidos">
+          {quickNav.map(({ href, label, icon: Icon }) => (
+            <Link key={href} href={href} className={`rail-link ${isActive(pathname, href) ? 'active' : ''}`} aria-label={label} title={label} aria-current={isActive(pathname, href) ? 'page' : undefined}>
+              <Icon size={22} aria-hidden="true" />
+            </Link>
+          ))}
+          <button type="button" className={`rail-link ${otherSectionActive ? 'active' : ''}`} aria-label="Abrir menú completo" title="Más secciones" aria-expanded={menuOpen} aria-controls={menuOpen ? 'navigation-drawer' : undefined} onClick={openMenu}>
+            <Menu size={22} aria-hidden="true" />
           </button>
+        </nav>
+        <button type="button" className="rail-link rail-logout" onClick={handleLogout} disabled={loggingOut} aria-label="Cerrar sesión" title="Cerrar sesión">
+          <LogOut size={21} aria-hidden="true" />
+        </button>
+      </aside>
 
-          {ingresoOpen && (
-            <div style={{ paddingLeft: '0.5rem' }}>
-              {ingresoNav.map(item => (
-                <NavLink key={item.href} item={item} active={pathname === item.href} />
-              ))}
-            </div>
-          )}
-        </div>
+      <header className="mobile-topbar">
+        <Link href="/dashboard" className="mobile-brand"><span className="mobile-brand-mark" aria-hidden="true">🗳️</span>Control Electoral</Link>
+        <button type="button" className="mobile-menu-button" aria-label="Abrir menú completo" aria-expanded={menuOpen} aria-controls={menuOpen ? 'navigation-drawer' : undefined} onClick={openMenu}>
+          <Menu size={23} aria-hidden="true" />
+        </button>
+      </header>
 
-        {/* Divider */}
-        <div style={{ height: '1px', background: 'var(--color-border)', margin: '0.5rem 0' }} />
-
-        {/* Main nav */}
-        <div style={{
-          fontSize: '0.7rem',
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          color: 'var(--color-text-muted)',
-          padding: '0.5rem 0.75rem 0.35rem',
-        }}>
-          Ver información
-        </div>
-        {mainNav.map(item => (
-          <NavLink key={item.href} item={item} active={isActive(item.href) && !pathname.includes('/nueva') && !pathname.includes('/nuevo')} />
+      <nav className="mobile-bottom-nav" aria-label="Navegación principal">
+        {quickNav.map(({ href, label, icon: Icon }) => (
+          <Link key={href} href={href} className={`bottom-link ${isActive(pathname, href) ? 'active' : ''}`} aria-current={isActive(pathname, href) ? 'page' : undefined}>
+            <Icon size={22} aria-hidden="true" /><span>{label}</span>
+          </Link>
         ))}
+        <button type="button" className={`bottom-link ${otherSectionActive || menuOpen ? 'active' : ''}`} aria-label="Más secciones" aria-expanded={menuOpen} aria-controls={menuOpen ? 'navigation-drawer' : undefined} onClick={openMenu}>
+          <MoreHorizontal size={22} aria-hidden="true" /><span>Más</span>
+        </button>
       </nav>
 
-      {/* Logout */}
-      <div style={{ padding: '0.75rem', borderTop: '1px solid var(--color-border)' }}>
-        <button
-          onClick={handleLogout}
-          disabled={loggingOut}
-          className="btn btn-ghost"
-          style={{ width: '100%', justifyContent: 'center', fontSize: '0.825rem' }}
-          id="btn-logout"
-        >
-          {loggingOut ? <span className="spinner spinner-dark" /> : '↩'} Cerrar sesión
-        </button>
-      </div>
-    </aside>
-  )
-}
-
-function NavLink({ item, active }: { item: NavItem; active: boolean }) {
-  return (
-    <Link
-      href={item.href}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.6rem',
-        padding: '0.5rem 0.75rem',
-        borderRadius: '8px',
-        marginBottom: '0.15rem',
-        fontSize: '0.875rem',
-        fontWeight: active ? 600 : 400,
-        color: active ? 'var(--color-primary)' : 'var(--color-text-muted)',
-        background: active ? 'var(--color-primary-soft)' : 'transparent',
-        textDecoration: 'none',
-        transition: 'all 0.15s',
-      }}
-      onMouseEnter={e => {
-        if (!active) {
-          (e.currentTarget as HTMLElement).style.background = 'var(--color-surface-2)'
-          ;(e.currentTarget as HTMLElement).style.color = 'var(--color-text)'
-        }
-      }}
-      onMouseLeave={e => {
-        if (!active) {
-          (e.currentTarget as HTMLElement).style.background = 'transparent'
-          ;(e.currentTarget as HTMLElement).style.color = 'var(--color-text-muted)'
-        }
-      }}
-    >
-      <span style={{ fontSize: '0.9rem', width: '18px', textAlign: 'center' }}>{item.icon}</span>
-      {item.label}
-    </Link>
+      {menuOpen && (
+        <div className="navigation-overlay">
+          <button type="button" className="navigation-scrim" aria-label="Cerrar menú" onClick={() => setMenuOpen(false)} />
+          <div id="navigation-drawer" ref={drawerRef} className="navigation-drawer" role="dialog" aria-modal="true" aria-label="Menú de navegación">
+            <div className="drawer-header">
+              <span className="drawer-brand"><span aria-hidden="true">🗳️</span> Control Electoral</span>
+              <button ref={closeButtonRef} type="button" className="drawer-close" aria-label="Cerrar menú" onClick={() => setMenuOpen(false)}><X size={22} aria-hidden="true" /></button>
+            </div>
+            <nav className="drawer-content" aria-label="Todas las secciones">
+              <div className="drawer-section-label">Ver información</div>
+              {sections.map(({ href, label, icon: Icon }) => (
+                <Link key={href} href={href} onClick={() => setMenuOpen(false)} className={`drawer-link ${isActive(pathname, href) ? 'active' : ''}`} aria-current={isActive(pathname, href) ? 'page' : undefined}>
+                  <Icon size={19} aria-hidden="true" /><span>{label}</span><ChevronRight size={16} aria-hidden="true" />
+                </Link>
+              ))}
+              <div className="drawer-section-label drawer-create-label">Ingresar información</div>
+              {createItems.map(({ href, label, icon: Icon }) => (
+                <Link key={href} href={href} onClick={() => setMenuOpen(false)} className={`drawer-link ${isActive(pathname, href) ? 'active' : ''}`} aria-current={isActive(pathname, href) ? 'page' : undefined}>
+                  <Icon size={19} aria-hidden="true" /><span>{label}</span><ChevronRight size={16} aria-hidden="true" />
+                </Link>
+              ))}
+            </nav>
+            <button type="button" className="drawer-logout" onClick={handleLogout} disabled={loggingOut}><LogOut size={19} aria-hidden="true" />{loggingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}</button>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

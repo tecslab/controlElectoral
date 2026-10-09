@@ -80,19 +80,14 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-        gap: '1rem',
-        marginBottom: '2rem',
-      }}>
+      <div className="dashboard-stats">
         {[
           { label: 'Total Colaboradores', icon: '👥', color: 'var(--color-primary)', value: totalColaboradores ?? 0 },
           { label: 'Recintos', icon: '🏫', color: '#a78bfa', value: totalRecintos ?? 0 },
           { label: 'Parroquias', icon: '🏘️', color: 'var(--color-success)', value: totalParroquias ?? 0 },
           { label: 'Juntas Cubiertas', icon: '✅', color: 'var(--color-warning)', value: totalJuntasCubiertas ?? 0 },
         ].map(stat => (
-          <div key={stat.label} className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div key={stat.label} className="card dashboard-stat-card">
             <div style={{
               width: '48px', height: '48px',
               borderRadius: '12px',
