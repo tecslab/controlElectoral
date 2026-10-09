@@ -9,7 +9,7 @@ import Link from 'next/link'
 import type { ColaboradorRaw } from './page'
 import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 import AuditInfo from '@/components/ui/AuditInfo'
-import { buildConfirmationWhatsappUrl } from '@/lib/whatsapp'
+import { buildConfirmationWhatsappLinks } from '@/lib/whatsapp'
 
 type Recinto = { id: string; nombre: string; id_parroquia: string }
 type Junta = { id: string; numero: number; sexo: string; estado: string }
@@ -224,7 +224,7 @@ export default function ColaboradorDetail({
   const recintosFiltrados = filtroParroquia ? recintos.filter(r => r.id_parroquia === filtroParroquia) : recintos
   const juntasM = juntasRecinto.filter(j => j.sexo === 'M')
   const juntasF = juntasRecinto.filter(j => j.sexo === 'F')
-  const whatsappUrl = buildConfirmationWhatsappUrl({
+  const whatsappLinks = buildConfirmationWhatsappLinks({
     whatsapp: colaborador.whatsapp,
     nombres: colaborador.nombres,
     rol: colaborador.rol,
@@ -282,8 +282,20 @@ export default function ColaboradorDetail({
               ? <input id="edit-whatsapp" type="text" className={`input ${errors.whatsapp ? 'input-error' : ''}`} value={form.whatsapp} onChange={e => setField('whatsapp', e.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric" />
               : <div className="whatsapp-contact">
                   <span style={{ fontFamily: 'monospace' }}>{colaborador.whatsapp}</span>
-                  {whatsappUrl
-                    ? <a className="whatsapp-action" href={whatsappUrl} target="_blank" rel="noopener noreferrer" aria-label={`Escribir a ${colaborador.nombres} por WhatsApp`} title="Escribir por WhatsApp"><WhatsAppIcon /></a>
+                  {whatsappLinks
+                    ? <a
+                        className="whatsapp-action"
+                        href={whatsappLinks.mobile}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Escribir a ${colaborador.nombres} por WhatsApp`}
+                        title="Escribir por WhatsApp"
+                        onClick={event => {
+                          if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return
+                          event.preventDefault()
+                          window.open(whatsappLinks.desktop, '_blank', 'noopener,noreferrer')
+                        }}
+                      ><WhatsAppIcon /></a>
                     : <button type="button" className="whatsapp-action" disabled aria-label="WhatsApp no disponible: falta un número válido, recinto o parroquia" title="Se necesita un número válido, recinto y parroquia para escribir por WhatsApp"><WhatsAppIcon /></button>}
                 </div>}
             {errors.whatsapp && <span className="error-text">{errors.whatsapp}</span>}

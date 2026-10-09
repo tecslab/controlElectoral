@@ -6,7 +6,9 @@ type ConfirmationDetails = {
   parroquia: string | null
 }
 
-export function buildConfirmationWhatsappUrl({ whatsapp, nombres, rol, recinto, parroquia }: ConfirmationDetails): string | null {
+type ConfirmationLinks = { mobile: string; desktop: string }
+
+export function buildConfirmationWhatsappLinks({ whatsapp, nombres, rol, recinto, parroquia }: ConfirmationDetails): ConfirmationLinks | null {
   const localNumber = whatsapp.trim()
   const name = nombres.trim()
   const role = rol.trim()
@@ -17,5 +19,11 @@ export function buildConfirmationWhatsappUrl({ whatsapp, nombres, rol, recinto, 
 
   const messageRole = role === 'MJRV' ? 'Veedor' : role
   const message = `Hola ${name}, te contactamos para confirmar tu apoyo como ${messageRole} en ${venue} de la parroquia ${parish}.`
-  return `https://wa.me/593${localNumber.slice(1)}?text=${encodeURIComponent(message)}`
+  const phone = `593${localNumber.slice(1)}`
+  const text = encodeURIComponent(message)
+
+  return {
+    mobile: `https://wa.me/${phone}?text=${text}`,
+    desktop: `https://web.whatsapp.com/send?phone=${phone}&text=${text}`,
+  }
 }
