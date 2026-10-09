@@ -9,10 +9,12 @@ import Link from 'next/link'
 import type { ColaboradorRaw } from './page'
 import { useEnterSubmit } from '@/hooks/useEnterSubmit'
 import AuditInfo from '@/components/ui/AuditInfo'
+import { buildConfirmationWhatsappUrl } from '@/lib/whatsapp'
 
 type Recinto = { id: string; nombre: string; id_parroquia: string }
 type Junta = { id: string; numero: number; sexo: string; estado: string }
 type Parroquia = { id: string; nombre: string }
+type AssignedLocation = { recinto: string; parroquia: string | null } | null
 type JuntaMode = '1junta' | 'rango'
 
 const CONTACTADO_OPTIONS = ['Sí', 'No', 'No responde', 'Volver a contactar']
@@ -21,11 +23,13 @@ export default function ColaboradorDetail({
   colaborador,
   recintos,
   parroquias,
+  assignedLocation,
   initEditing = false,
 }: {
   colaborador: ColaboradorRaw
   recintos: Recinto[]
   parroquias: Parroquia[]
+  assignedLocation: AssignedLocation
   initEditing?: boolean
 }) {
   const router = useRouter()
@@ -220,6 +224,13 @@ export default function ColaboradorDetail({
   const recintosFiltrados = filtroParroquia ? recintos.filter(r => r.id_parroquia === filtroParroquia) : recintos
   const juntasM = juntasRecinto.filter(j => j.sexo === 'M')
   const juntasF = juntasRecinto.filter(j => j.sexo === 'F')
+  const whatsappUrl = buildConfirmationWhatsappUrl({
+    whatsapp: colaborador.whatsapp,
+    nombres: colaborador.nombres,
+    rol: colaborador.rol,
+    recinto: assignedLocation?.recinto ?? null,
+    parroquia: assignedLocation?.parroquia ?? null,
+  })
 
   const contactadoBadge: Record<string, string> = {
     'Sí': 'badge-green',
@@ -269,7 +280,12 @@ export default function ColaboradorDetail({
           <Field label="WhatsApp" editing={editing}>
             {editing
               ? <input id="edit-whatsapp" type="text" className={`input ${errors.whatsapp ? 'input-error' : ''}`} value={form.whatsapp} onChange={e => setField('whatsapp', e.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric" />
-              : <span style={{ fontFamily: 'monospace' }}>{colaborador.whatsapp}</span>}
+              : <div className="whatsapp-contact">
+                  <span style={{ fontFamily: 'monospace' }}>{colaborador.whatsapp}</span>
+                  {whatsappUrl
+                    ? <a className="whatsapp-action" href={whatsappUrl} target="_blank" rel="noopener noreferrer" aria-label={`Escribir a ${colaborador.nombres} por WhatsApp`} title="Escribir por WhatsApp"><WhatsAppIcon /></a>
+                    : <button type="button" className="whatsapp-action" disabled aria-label="WhatsApp no disponible: falta un número válido, recinto o parroquia" title="Se necesita un número válido, recinto y parroquia para escribir por WhatsApp"><WhatsAppIcon /></button>}
+                </div>}
             {errors.whatsapp && <span className="error-text">{errors.whatsapp}</span>}
           </Field>
 
@@ -365,7 +381,7 @@ export default function ColaboradorDetail({
                 {recintosFiltrados.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
               </select>
             ) : (
-              recintos.find(r => r.id === colaborador.id_recinto_asignado)?.nombre ?? 'No asignado'
+              assignedLocation?.recinto ?? recintos.find(r => r.id === colaborador.id_recinto_asignado)?.nombre ?? 'No asignado'
             )}
           </Field>
 
@@ -573,5 +589,13 @@ function Field({ label, children, editing }: { label: string; children: React.Re
       <div className="label">{label}</div>
       <div>{children}</div>
     </div>
+  )
+}
+
+function WhatsAppIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="21" height="21" fill="currentColor" aria-hidden="true">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.966-.273-.099-.472-.149-.67.149-.198.297-.768.966-.941 1.164-.173.198-.347.223-.644.075-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.058-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.173.198-.297.297-.495.099-.198.05-.372-.025-.52-.075-.149-.669-1.611-.916-2.206-.242-.579-.487-.5-.669-.51-.173-.008-.372-.01-.57-.01s-.52.074-.793.372c-.273.297-1.04 1.016-1.04 2.478s1.065 2.874 1.213 3.072c.149.198 2.095 3.2 5.077 4.487.709.306 1.263.489 1.695.626.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.005-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.002-5.445 4.433-9.875 9.886-9.875 2.64.001 5.12 1.03 6.985 2.897a9.825 9.825 0 0 1 2.893 6.99c-.002 5.445-4.433 9.875-9.883 9.875m8.407-18.288A11.82 11.82 0 0 0 12.051 0C5.495 0 .158 5.335.156 11.892a11.89 11.89 0 0 0 1.587 5.954L.057 24l6.3-1.653a11.89 11.89 0 0 0 5.69 1.448h.005c6.556 0 11.893-5.335 11.896-11.893a11.82 11.82 0 0 0-3.48-8.407z" />
+    </svg>
   )
 }

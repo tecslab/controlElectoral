@@ -38,6 +38,18 @@ export default async function ColaboradorPage(props: { params: Params, searchPar
 
   if (error || !colab) notFound()
 
+  const { data: assignedRecinto } = colab.id_recinto_asignado
+    ? await supabase
+        .from('recintos')
+        .select('nombre, parroquias!recintos_id_parroquia_fkey(nombre)')
+        .eq('id', colab.id_recinto_asignado)
+        .maybeSingle()
+    : { data: null }
+
+  const assignedLocation = assignedRecinto
+    ? { recinto: assignedRecinto.nombre, parroquia: assignedRecinto.parroquias?.nombre ?? null }
+    : null
+
   const userIds = [colab.created_by, colab.updated_by].filter(Boolean) as string[]
   let createdByName: string | null = null
   let updatedByName: string | null = null
@@ -61,7 +73,7 @@ export default async function ColaboradorPage(props: { params: Params, searchPar
     updated_by_name: updatedByName,
   }
 
-  return <ColaboradorDetail colaborador={colabWithAudit as ColaboradorRaw} recintos={recintos ?? []} parroquias={parroquias ?? []} initEditing={searchParams.edit === 'true'} />
+  return <ColaboradorDetail colaborador={colabWithAudit as ColaboradorRaw} recintos={recintos ?? []} parroquias={parroquias ?? []} assignedLocation={assignedLocation} initEditing={searchParams.edit === 'true'} />
 }
 
 // Type exported for use in client component
